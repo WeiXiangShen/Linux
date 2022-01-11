@@ -78,23 +78,23 @@
 
 /* PREFLUSH/FUA sequences */
 enum {
-	REQ_FSEQ_PREFLUSH	= (1 << 0), /* pre-flushing in progress */
-	REQ_FSEQ_DATA		= (1 << 1), /* data write in progress */
-	REQ_FSEQ_POSTFLUSH	= (1 << 2), /* post-flushing in progress */
-	REQ_FSEQ_DONE		= (1 << 3),
+	REQ_FSEQ_PREFLUSH = (1 << 0), /* pre-flushing in progress */
+	REQ_FSEQ_DATA = (1 << 1), /* data write in progress */
+	REQ_FSEQ_POSTFLUSH = (1 << 2), /* post-flushing in progress */
+	REQ_FSEQ_DONE = (1 << 3),
 
-	REQ_FSEQ_ACTIONS	= REQ_FSEQ_PREFLUSH | REQ_FSEQ_DATA |
-				  REQ_FSEQ_POSTFLUSH,
+	REQ_FSEQ_ACTIONS =
+		REQ_FSEQ_PREFLUSH | REQ_FSEQ_DATA | REQ_FSEQ_POSTFLUSH,
 
 	/*
 	 * If flush has been pending longer than the following timeout,
 	 * it's issued even if flush_data requests are still in flight.
 	 */
-	FLUSH_PENDING_TIMEOUT	= 5 * HZ,
+	FLUSH_PENDING_TIMEOUT = 5 * HZ,
 };
 
-static void blk_kick_flush(struct request_queue *q,
-			   struct blk_flush_queue *fq, unsigned int flags);
+static void blk_kick_flush(struct request_queue *q, struct blk_flush_queue *fq,
+			   unsigned int flags);
 
 static unsigned int blk_flush_policy(unsigned long fflags, struct request *rq)
 {
@@ -162,8 +162,8 @@ static void blk_account_io_flush(struct request *rq)
  * spin_lock_irq(fq->mq_flush_lock)
  */
 static void blk_flush_complete_seq(struct request *rq,
-				   struct blk_flush_queue *fq,
-				   unsigned int seq, blk_status_t error)
+				   struct blk_flush_queue *fq, unsigned int seq,
+				   blk_status_t error)
 {
 	struct request_queue *q = rq->q;
 	struct list_head *pending = &fq->flush_queue[fq->flush_pending_idx];
@@ -253,7 +253,7 @@ static void flush_end_io(struct request *flush_rq, blk_status_t error)
 	fq->flush_running_idx ^= 1;
 
 	/* and push the waiting requests to the next stage */
-	list_for_each_entry_safe(rq, n, running, flush.list) {
+	list_for_each_entry_safe (rq, n, running, flush.list) {
 		unsigned int seq = blk_flush_cur_seq(rq);
 
 		BUG_ON(seq != REQ_FSEQ_PREFLUSH && seq != REQ_FSEQ_POSTFLUSH);
@@ -290,7 +290,8 @@ static void blk_kick_flush(struct request_queue *q, struct blk_flush_queue *fq,
 	struct request *flush_rq = fq->flush_rq;
 
 	/* C1 described at the top of this file */
-	if (fq->flush_pending_idx != fq->flush_running_idx || list_empty(pending))
+	if (fq->flush_pending_idx != fq->flush_running_idx ||
+	    list_empty(pending))
 		return;
 
 	/* C2 and C3 */
@@ -383,7 +384,7 @@ static void mq_flush_data_end_io(struct request *rq, blk_status_t error)
 void blk_insert_flush(struct request *rq)
 {
 	struct request_queue *q = rq->q;
-	unsigned long fflags = q->queue_flags;	/* may change, cache */
+	unsigned long fflags = q->queue_flags; /* may change, cache */
 	unsigned int policy = blk_flush_policy(fflags, rq);
 	struct blk_flush_queue *fq = blk_get_flush_queue(q, rq->mq_ctx);
 
@@ -459,6 +460,11 @@ int blkdev_issue_flush(struct block_device *bdev, gfp_t gfp_mask)
 	bio_set_dev(bio, bdev);
 	bio->bi_opf = REQ_OP_WRITE | REQ_PREFLUSH;
 
+	// copy from hank
+#ifdef CONFIG_BIO_WITH_INODE_ID
+	bio->i_ino = 0;
+#endif
+
 	ret = submit_bio_wait(bio);
 	bio_put(bio);
 	return ret;
@@ -491,9 +497,9 @@ struct blk_flush_queue *blk_alloc_flush_queue(int node, int cmd_size,
 
 	return fq;
 
- fail_rq:
+fail_rq:
 	kfree(fq);
- fail:
+fail:
 	return NULL;
 }
 

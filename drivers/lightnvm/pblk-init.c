@@ -71,7 +71,8 @@ static blk_qc_t pblk_submit_bio(struct bio *bio)
 		 * and large user I/Os. Unless stalled, the rate limiter
 		 * leaves at least 256KB available for user I/O.
 		 */
-		printk(KERN_INFO "process id:%d\n", task_pid_nr(current));
+		printk(KERN_INFO "process id:%d file inode id:%lu\n",
+		       task_pid_nr(current), bio->i_ino);
 		if (pblk_get_secs(bio) > pblk_rl_max_io(&pblk->rl))
 			blk_queue_split(&bio);
 

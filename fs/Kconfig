@@ -5,6 +5,11 @@
 
 menu "File systems"
 
+config BIO_WITH_INODE_ID
+	bool "Enable bio to carry inode/file id on ext4"
+	help
+	  This is designed for secure deletion on SMR drive.
+
 # Use unaligned word dcache accesses
 config DCACHE_WORD_ACCESS
        bool

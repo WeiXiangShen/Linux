@@ -47,7 +47,7 @@
 
 #include "ext4.h"
 
-#define NUM_PREALLOC_POST_READ_CTXS	128
+#define NUM_PREALLOC_POST_READ_CTXS 128
 
 static struct kmem_cache *bio_post_read_ctx_cache;
 static mempool_t *bio_post_read_ctx_pool;
@@ -73,7 +73,7 @@ static void __read_end_io(struct bio *bio)
 	struct bio_vec *bv;
 	struct bvec_iter_all iter_all;
 
-	bio_for_each_segment_all(bv, bio, iter_all) {
+	bio_for_each_segment_all (bv, bio, iter_all) {
 		page = bv->bv_page;
 
 		/* PG_error was set if any post_read step failed */
@@ -221,8 +221,8 @@ static inline loff_t ext4_readpage_limit(struct inode *inode)
 	return i_size_read(inode);
 }
 
-int ext4_mpage_readpages(struct inode *inode,
-		struct readahead_control *rac, struct page *page)
+int ext4_mpage_readpages(struct inode *inode, struct readahead_control *rac,
+			 struct page *page)
 {
 	struct bio *bio = NULL;
 	sector_t last_block_in_bio = 0;
@@ -259,11 +259,11 @@ int ext4_mpage_readpages(struct inode *inode,
 		if (page_has_buffers(page))
 			goto confused;
 
-		block_in_file = next_block =
-			(sector_t)page->index << (PAGE_SHIFT - blkbits);
+		block_in_file = next_block = (sector_t)page->index
+					     << (PAGE_SHIFT - blkbits);
 		last_block = block_in_file + nr_pages * blocks_per_page;
-		last_block_in_file = (ext4_readpage_limit(inode) +
-				      blocksize - 1) >> blkbits;
+		last_block_in_file =
+			(ext4_readpage_limit(inode) + blocksize - 1) >> blkbits;
 		if (last_block > last_block_in_file)
 			last_block = last_block_in_file;
 		page_block = 0;
@@ -277,7 +277,7 @@ int ext4_mpage_readpages(struct inode *inode,
 			unsigned map_offset = block_in_file - map.m_lblk;
 			unsigned last = map.m_len - map_offset;
 
-			for (relative_block = 0; ; relative_block++) {
+			for (relative_block = 0;; relative_block++) {
 				if (relative_block == last) {
 					/* needed? */
 					map.m_flags &= ~EXT4_MAP_MAPPED;
@@ -286,7 +286,7 @@ int ext4_mpage_readpages(struct inode *inode,
 				if (page_block == blocks_per_page)
 					break;
 				blocks[page_block] = map.m_pblk + map_offset +
-					relative_block;
+						     relative_block;
 				page_block++;
 				block_in_file++;
 			}
@@ -304,8 +304,7 @@ int ext4_mpage_readpages(struct inode *inode,
 				if (ext4_map_blocks(NULL, inode, &map, 0) < 0) {
 				set_error_page:
 					SetPageError(page);
-					zero_user_segment(page, 0,
-							  PAGE_SIZE);
+					zero_user_segment(page, 0, PAGE_SIZE);
 					unlock_page(page);
 					goto next_page;
 				}
@@ -319,19 +318,21 @@ int ext4_mpage_readpages(struct inode *inode,
 				continue;
 			}
 			if (first_hole != blocks_per_page)
-				goto confused;		/* hole -> non-hole */
+				goto confused; /* hole -> non-hole */
 
 			/* Contiguous blocks? */
-			if (page_block && blocks[page_block-1] != map.m_pblk-1)
+			if (page_block &&
+			    blocks[page_block - 1] != map.m_pblk - 1)
 				goto confused;
-			for (relative_block = 0; ; relative_block++) {
+			for (relative_block = 0;; relative_block++) {
 				if (relative_block == map.m_len) {
 					/* needed? */
 					map.m_flags &= ~EXT4_MAP_MAPPED;
 					break;
 				} else if (page_block == blocks_per_page)
 					break;
-				blocks[page_block] = map.m_pblk+relative_block;
+				blocks[page_block] =
+					map.m_pblk + relative_block;
 				page_block++;
 				block_in_file++;
 			}
@@ -363,6 +364,12 @@ int ext4_mpage_readpages(struct inode *inode,
 		if (bio && (last_block_in_bio != blocks[0] - 1 ||
 			    !fscrypt_mergeable_bio(bio, inode, next_block))) {
 		submit_and_realloc:
+			// copy from hank
+#ifdef CONFIG_BIO_WITH_INODE_ID
+			if (bio) {
+				bio->i_ino = inode->i_ino;
+			}
+#endif
 			submit_bio(bio);
 			bio = NULL;
 		}
@@ -372,7 +379,7 @@ int ext4_mpage_readpages(struct inode *inode,
 			 * __GFP_DIRECT_RECLAIM is set, see bio_alloc_bioset().
 			 */
 			bio = bio_alloc(GFP_KERNEL,
-				min_t(int, nr_pages, BIO_MAX_PAGES));
+					min_t(int, nr_pages, BIO_MAX_PAGES));
 			fscrypt_set_bio_crypt_ctx(bio, inode, next_block,
 						  GFP_KERNEL);
 			ext4_set_bio_post_read_ctx(bio, inode, page->index);
@@ -380,7 +387,11 @@ int ext4_mpage_readpages(struct inode *inode,
 			bio->bi_iter.bi_sector = blocks[0] << (blkbits - 9);
 			bio->bi_end_io = mpage_end_io;
 			bio_set_op_attrs(bio, REQ_OP_READ,
-						rac ? REQ_RAHEAD : 0);
+					 rac ? REQ_RAHEAD : 0);
+			// copy from hank
+#ifdef CONFIG_BIO_WITH_INODE_ID
+			bio->i_ino = 1000;
+#endif
 		}
 
 		length = first_hole << blkbits;
@@ -390,6 +401,12 @@ int ext4_mpage_readpages(struct inode *inode,
 		if (((map.m_flags & EXT4_MAP_BOUNDARY) &&
 		     (relative_block == map.m_len)) ||
 		    (first_hole != blocks_per_page)) {
+			// copy from hank
+#ifdef CONFIG_BIO_WITH_INODE_ID
+			if (bio) {
+				bio->i_ino = inode->i_ino;
+			}
+#endif
 			submit_bio(bio);
 			bio = NULL;
 		} else
@@ -397,6 +414,12 @@ int ext4_mpage_readpages(struct inode *inode,
 		goto next_page;
 	confused:
 		if (bio) {
+			// copy from hank
+#ifdef CONFIG_BIO_WITH_INODE_ID
+			if (bio && S_ISREG(inode->i_mode)) {
+				bio->i_ino = inode->i_ino;
+			}
+#endif
 			submit_bio(bio);
 			bio = NULL;
 		}
@@ -408,8 +431,15 @@ int ext4_mpage_readpages(struct inode *inode,
 		if (rac)
 			put_page(page);
 	}
-	if (bio)
+	if (bio) {
+		// copy from hank
+#ifdef CONFIG_BIO_WITH_INODE_ID
+		if (bio) {
+			bio->i_ino = inode->i_ino;
+		}
+#endif
 		submit_bio(bio);
+	}
 	return 0;
 }
 
@@ -420,9 +450,8 @@ int __init ext4_init_post_read_processing(void)
 				  sizeof(struct bio_post_read_ctx), 0, 0, NULL);
 	if (!bio_post_read_ctx_cache)
 		goto fail;
-	bio_post_read_ctx_pool =
-		mempool_create_slab_pool(NUM_PREALLOC_POST_READ_CTXS,
-					 bio_post_read_ctx_cache);
+	bio_post_read_ctx_pool = mempool_create_slab_pool(
+		NUM_PREALLOC_POST_READ_CTXS, bio_post_read_ctx_cache);
 	if (!bio_post_read_ctx_pool)
 		goto fail_free_cache;
 	return 0;

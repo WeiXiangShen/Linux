@@ -28,16 +28,20 @@
  * Test patch to inline a certain number of bi_io_vec's inside the bio
  * itself, to shrink a bio data allocation from two mempool calls to one
  */
-#define BIO_INLINE_VECS		4
+#define BIO_INLINE_VECS 4
 
 /*
  * if you change this list, also change bvec_alloc or things will
  * break badly! cannot be bigger than what you can fit into an
  * unsigned short
  */
-#define BV(x, n) { .nr_vecs = x, .name = "biovec-"#n }
+#define BV(x, n)                                                               \
+	{                                                                      \
+		.nr_vecs = x, .name = "biovec-" #n                             \
+	}
 static struct biovec_slab bvec_slabs[BVEC_POOL_NR] __read_mostly = {
-	BV(1, 1), BV(4, 4), BV(16, 16), BV(64, 64), BV(128, 128), BV(BIO_MAX_PAGES, max),
+	BV(1, 1),   BV(4, 4),	  BV(16, 16),
+	BV(64, 64), BV(128, 128), BV(BIO_MAX_PAGES, max),
 };
 #undef BV
 
@@ -90,9 +94,10 @@ static struct kmem_cache *bio_find_or_create_slab(unsigned int extra_size)
 
 	if (bio_slab_nr == bio_slab_max && entry == -1) {
 		new_bio_slab_max = bio_slab_max << 1;
-		new_bio_slabs = krealloc(bio_slabs,
-					 new_bio_slab_max * sizeof(struct bio_slab),
-					 GFP_KERNEL);
+		new_bio_slabs =
+			krealloc(bio_slabs,
+				 new_bio_slab_max * sizeof(struct bio_slab),
+				 GFP_KERNEL);
 		if (!new_bio_slabs)
 			goto out_unlock;
 		bio_slab_max = new_bio_slab_max;
@@ -204,11 +209,12 @@ struct bio_vec *bvec_alloc(gfp_t gfp_mask, int nr, unsigned long *idx,
 	 * 1-vec entry pool is mempool backed.
 	 */
 	if (*idx == BVEC_POOL_MAX) {
-fallback:
+	fallback:
 		bvl = mempool_alloc(pool, gfp_mask);
 	} else {
 		struct biovec_slab *bvs = bvec_slabs + *idx;
-		gfp_t __gfp_mask = gfp_mask & ~(__GFP_DIRECT_RECLAIM | __GFP_IO);
+		gfp_t __gfp_mask =
+			gfp_mask & ~(__GFP_DIRECT_RECLAIM | __GFP_IO);
 
 		/*
 		 * Make this allocation restricted and don't dump info on
@@ -275,8 +281,7 @@ static void bio_free(struct bio *bio)
  * they must remember to pair any call to bio_init() with bio_uninit()
  * when IO has completed, or when the bio is released.
  */
-void bio_init(struct bio *bio, struct bio_vec *table,
-	      unsigned short max_vecs)
+void bio_init(struct bio *bio, struct bio_vec *table, unsigned short max_vecs)
 {
 	memset(bio, 0, sizeof(*bio));
 	atomic_set(&bio->__bi_remaining, 1);
@@ -340,7 +345,7 @@ void bio_chain(struct bio *bio, struct bio *parent)
 	BUG_ON(bio->bi_private || bio->bi_end_io);
 
 	bio->bi_private = parent;
-	bio->bi_end_io	= bio_chain_endio;
+	bio->bi_end_io = bio_chain_endio;
 	bio_inc_remaining(parent);
 }
 EXPORT_SYMBOL(bio_chain);
@@ -448,7 +453,8 @@ struct bio *bio_alloc_bioset(gfp_t gfp_mask, unsigned int nr_iovecs,
 		if (nr_iovecs > UIO_MAXIOV)
 			return NULL;
 
-		p = kmalloc(struct_size(bio, bi_inline_vecs, nr_iovecs), gfp_mask);
+		p = kmalloc(struct_size(bio, bi_inline_vecs, nr_iovecs),
+			    gfp_mask);
 		front_pad = 0;
 		inline_vecs = nr_iovecs;
 	} else {
@@ -507,7 +513,8 @@ struct bio *bio_alloc_bioset(gfp_t gfp_mask, unsigned int nr_iovecs,
 		if (!bvl && gfp_mask != saved_gfp) {
 			punt_bios_to_rescuer(bs);
 			gfp_mask = saved_gfp;
-			bvl = bvec_alloc(gfp_mask, nr_iovecs, &idx, &bs->bvec_pool);
+			bvl = bvec_alloc(gfp_mask, nr_iovecs, &idx,
+					 &bs->bvec_pool);
 		}
 
 		if (unlikely(!bvl))
@@ -535,7 +542,7 @@ void zero_fill_bio_iter(struct bio *bio, struct bvec_iter start)
 	struct bio_vec bv;
 	struct bvec_iter iter;
 
-	__bio_for_each_segment(bv, bio, iter, start) {
+	__bio_for_each_segment (bv, bio, iter, start) {
 		char *data = bvec_kmap_irq(&bv, &flags);
 		memset(data, 0, bv.bv_len);
 		flush_dcache_page(bv.bv_page);
@@ -567,7 +574,7 @@ void bio_truncate(struct bio *bio, unsigned new_size)
 	if (bio_op(bio) != REQ_OP_READ)
 		goto exit;
 
-	bio_for_each_segment(bv, bio, iter) {
+	bio_for_each_segment (bv, bio, iter) {
 		if (done + bv.bv_len > new_size) {
 			unsigned offset;
 
@@ -581,7 +588,7 @@ void bio_truncate(struct bio *bio, unsigned new_size)
 		done += bv.bv_len;
 	}
 
- exit:
+exit:
 	/*
 	 * Don't touch bvec table here and make it really immutable, since
 	 * fs bio user has to retrieve all pages via bio_for_each_segment_all
@@ -690,6 +697,11 @@ void __bio_clone_fast(struct bio *bio, struct bio *bio_src)
 	bio->bi_iter = bio_src->bi_iter;
 	bio->bi_io_vec = bio_src->bi_io_vec;
 
+	// copy from hank
+#ifdef CONFIG_BIO_WITH_INODE_ID
+	bio->i_ino = bio_src->i_ino;
+#endif
+
 	bio_clone_blkg_association(bio, bio_src);
 	blkcg_bio_issue_init(bio);
 }
@@ -716,8 +728,7 @@ struct bio *bio_clone_fast(struct bio *bio, gfp_t gfp_mask, struct bio_set *bs)
 	if (bio_crypt_clone(b, bio, gfp_mask) < 0)
 		goto err_put;
 
-	if (bio_integrity(bio) &&
-	    bio_integrity_clone(b, bio, gfp_mask) < 0)
+	if (bio_integrity(bio) && bio_integrity_clone(b, bio, gfp_mask) < 0)
 		goto err_put;
 
 	return b;
@@ -735,8 +746,8 @@ const char *bio_devname(struct bio *bio, char *buf)
 EXPORT_SYMBOL(bio_devname);
 
 static inline bool page_is_mergeable(const struct bio_vec *bv,
-		struct page *page, unsigned int len, unsigned int off,
-		bool *same_page)
+				     struct page *page, unsigned int len,
+				     unsigned int off, bool *same_page)
 {
 	size_t bv_end = bv->bv_offset + bv->bv_len;
 	phys_addr_t vec_end_addr = page_to_phys(bv->bv_page) + bv_end - 1;
@@ -787,9 +798,9 @@ static bool bio_try_merge_hw_seg(struct request_queue *q, struct bio *bio,
  * Add a page to a bio while respecting the hardware max_sectors, max_segment
  * and gap limitations.
  */
-int bio_add_hw_page(struct request_queue *q, struct bio *bio,
-		struct page *page, unsigned int len, unsigned int offset,
-		unsigned int max_sectors, bool *same_page)
+int bio_add_hw_page(struct request_queue *q, struct bio *bio, struct page *page,
+		    unsigned int len, unsigned int offset,
+		    unsigned int max_sectors, bool *same_page)
 {
 	struct bio_vec *bvec;
 
@@ -842,12 +853,12 @@ int bio_add_hw_page(struct request_queue *q, struct bio *bio,
  *
  * This should only be used by passthrough bios.
  */
-int bio_add_pc_page(struct request_queue *q, struct bio *bio,
-		struct page *page, unsigned int len, unsigned int offset)
+int bio_add_pc_page(struct request_queue *q, struct bio *bio, struct page *page,
+		    unsigned int len, unsigned int offset)
 {
 	bool same_page = false;
 	return bio_add_hw_page(q, bio, page, len, offset,
-			queue_max_hw_sectors(q), &same_page);
+			       queue_max_hw_sectors(q), &same_page);
 }
 EXPORT_SYMBOL(bio_add_pc_page);
 
@@ -867,8 +878,8 @@ EXPORT_SYMBOL(bio_add_pc_page);
  *
  * Return %true on success or %false on failure.
  */
-bool __bio_try_merge_page(struct bio *bio, struct page *page,
-		unsigned int len, unsigned int off, bool *same_page)
+bool __bio_try_merge_page(struct bio *bio, struct page *page, unsigned int len,
+			  unsigned int off, bool *same_page)
 {
 	if (WARN_ON_ONCE(bio_flagged(bio, BIO_CLONED)))
 		return false;
@@ -900,8 +911,8 @@ EXPORT_SYMBOL_GPL(__bio_try_merge_page);
  * Add the data at @page + @off to @bio as a new bvec.  The caller must ensure
  * that @bio has space for another bvec.
  */
-void __bio_add_page(struct bio *bio, struct page *page,
-		unsigned int len, unsigned int off)
+void __bio_add_page(struct bio *bio, struct page *page, unsigned int len,
+		    unsigned int off)
 {
 	struct bio_vec *bv = &bio->bi_io_vec[bio->bi_vcnt];
 
@@ -930,8 +941,8 @@ EXPORT_SYMBOL_GPL(__bio_add_page);
  *	Attempt to add page(s) to the bio_vec maplist. This will only fail
  *	if either bio->bi_vcnt == bio->bi_max_vecs or it's a cloned bio.
  */
-int bio_add_page(struct bio *bio, struct page *page,
-		 unsigned int len, unsigned int offset)
+int bio_add_page(struct bio *bio, struct page *page, unsigned int len,
+		 unsigned int offset)
 {
 	bool same_page = false;
 
@@ -952,7 +963,7 @@ void bio_release_pages(struct bio *bio, bool mark_dirty)
 	if (bio_flagged(bio, BIO_NO_PAGE_REF))
 		return;
 
-	bio_for_each_segment_all(bvec, bio, iter_all) {
+	bio_for_each_segment_all (bvec, bio, iter_all) {
 		if (mark_dirty && !PageCompound(bvec->bv_page))
 			set_page_dirty_lock(bvec->bv_page);
 		put_page(bvec->bv_page);
@@ -971,7 +982,7 @@ static int __bio_iov_bvec_add_pages(struct bio *bio, struct iov_iter *iter)
 
 	len = min_t(size_t, bv->bv_len - iter->iov_offset, iter->count);
 	size = bio_add_page(bio, bv->bv_page, len,
-				bv->bv_offset + iter->iov_offset);
+			    bv->bv_offset + iter->iov_offset);
 	if (unlikely(size != len))
 		return -EINVAL;
 	iov_iter_advance(iter, size);
@@ -986,7 +997,7 @@ static void bio_put_pages(struct page **pages, size_t size, size_t off)
 		put_page(pages[i]);
 }
 
-#define PAGE_PTRS_PER_BVEC     (sizeof(struct bio_vec) / sizeof(struct page *))
+#define PAGE_PTRS_PER_BVEC (sizeof(struct bio_vec) / sizeof(struct page *))
 
 /**
  * __bio_iov_iter_get_pages - pin user or kernel pages and add them to a bio
@@ -1077,7 +1088,7 @@ static int __bio_iov_append_get_pages(struct bio *bio, struct iov_iter *iter)
 
 		len = min_t(size_t, PAGE_SIZE - offset, left);
 		if (bio_add_hw_page(q, bio, page, len, offset,
-				max_append_sectors, &same_page) != len) {
+				    max_append_sectors, &same_page) != len) {
 			bio_put_pages(pages + i, left, offset);
 			ret = -EINVAL;
 			break;
@@ -1168,7 +1179,7 @@ int submit_bio_wait(struct bio *bio)
 	hang_check = sysctl_hung_task_timeout_secs;
 	if (hang_check)
 		while (!wait_for_completion_io_timeout(&done,
-					hang_check * (HZ/2)))
+						       hang_check * (HZ / 2)))
 			;
 	else
 		wait_for_completion_io(&done);
@@ -1214,8 +1225,7 @@ void bio_copy_data_iter(struct bio *dst, struct bvec_iter *dst_iter,
 		src_p = kmap_atomic(src_bv.bv_page);
 		dst_p = kmap_atomic(dst_bv.bv_page);
 
-		memcpy(dst_p + dst_bv.bv_offset,
-		       src_p + src_bv.bv_offset,
+		memcpy(dst_p + dst_bv.bv_offset, src_p + src_bv.bv_offset,
 		       bytes);
 
 		kunmap_atomic(dst_p);
@@ -1288,7 +1298,7 @@ void bio_free_pages(struct bio *bio)
 	struct bio_vec *bvec;
 	struct bvec_iter_all iter_all;
 
-	bio_for_each_segment_all(bvec, bio, iter_all)
+	bio_for_each_segment_all (bvec, bio, iter_all)
 		__free_page(bvec->bv_page);
 }
 EXPORT_SYMBOL(bio_free_pages);
@@ -1327,7 +1337,7 @@ void bio_set_pages_dirty(struct bio *bio)
 	struct bio_vec *bvec;
 	struct bvec_iter_all iter_all;
 
-	bio_for_each_segment_all(bvec, bio, iter_all) {
+	bio_for_each_segment_all (bvec, bio, iter_all) {
 		if (!PageCompound(bvec->bv_page))
 			set_page_dirty_lock(bvec->bv_page);
 	}
@@ -1376,7 +1386,7 @@ void bio_check_pages_dirty(struct bio *bio)
 	unsigned long flags;
 	struct bvec_iter_all iter_all;
 
-	bio_for_each_segment_all(bvec, bio, iter_all) {
+	bio_for_each_segment_all (bvec, bio, iter_all) {
 		if (!PageDirty(bvec->bv_page) && !PageCompound(bvec->bv_page))
 			goto defer;
 	}
@@ -1476,8 +1486,8 @@ EXPORT_SYMBOL(bio_endio);
  * to @bio's bi_io_vec. It is the caller's responsibility to ensure that
  * neither @bio nor @bs are freed before the split bio.
  */
-struct bio *bio_split(struct bio *bio, int sectors,
-		      gfp_t gfp, struct bio_set *bs)
+struct bio *bio_split(struct bio *bio, int sectors, gfp_t gfp,
+		      struct bio_set *bs)
 {
 	struct bio *split;
 
@@ -1527,7 +1537,6 @@ void bio_trim(struct bio *bio, int offset, int size)
 
 	if (bio_integrity(bio))
 		bio_integrity_trim(bio);
-
 }
 EXPORT_SYMBOL_GPL(bio_trim);
 
@@ -1585,10 +1594,8 @@ EXPORT_SYMBOL(bioset_exit);
  *    dispatch queued requests when the mempool runs out of space.
  *
  */
-int bioset_init(struct bio_set *bs,
-		unsigned int pool_size,
-		unsigned int front_pad,
-		int flags)
+int bioset_init(struct bio_set *bs, unsigned int pool_size,
+		unsigned int front_pad, int flags)
 {
 	unsigned int back_pad = BIO_INLINE_VECS * sizeof(struct bio_vec);
 
@@ -1656,7 +1663,8 @@ static void __init biovec_init_slabs(void)
 
 		size = bvs->nr_vecs * sizeof(struct bio_vec);
 		bvs->slab = kmem_cache_create(bvs->name, size, 0,
-                                SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
+					      SLAB_HWCACHE_ALIGN | SLAB_PANIC,
+					      NULL);
 	}
 }
 
@@ -1664,8 +1672,7 @@ static int __init init_bio(void)
 {
 	bio_slab_max = 2;
 	bio_slab_nr = 0;
-	bio_slabs = kcalloc(bio_slab_max, sizeof(struct bio_slab),
-			    GFP_KERNEL);
+	bio_slabs = kcalloc(bio_slab_max, sizeof(struct bio_slab), GFP_KERNEL);
 
 	BUILD_BUG_ON(BIO_FLAG_LAST > BVEC_POOL_OFFSET);
 

@@ -71,7 +71,7 @@ static void ext4_free_io_end_vec(ext4_io_end_t *io_end)
 
 	if (list_empty(&io_end->list_vec))
 		return;
-	list_for_each_entry_safe(io_end_vec, tmp, &io_end->list_vec, list) {
+	list_for_each_entry_safe (io_end_vec, tmp, &io_end->list_vec, list) {
 		list_del(&io_end_vec->list);
 		kmem_cache_free(io_end_vec_cachep, io_end_vec);
 	}
@@ -92,9 +92,9 @@ struct ext4_io_end_vec *ext4_last_io_end_vec(ext4_io_end_t *io_end)
  */
 static void buffer_io_error(struct buffer_head *bh)
 {
-	printk_ratelimited(KERN_ERR "Buffer I/O error on device %pg, logical block %llu\n",
-		       bh->b_bdev,
-			(unsigned long long)bh->b_blocknr);
+	printk_ratelimited(
+		KERN_ERR "Buffer I/O error on device %pg, logical block %llu\n",
+		bh->b_bdev, (unsigned long long)bh->b_blocknr);
 }
 
 static void ext4_finish_bio(struct bio *bio)
@@ -102,7 +102,7 @@ static void ext4_finish_bio(struct bio *bio)
 	struct bio_vec *bvec;
 	struct bvec_iter_all iter_all;
 
-	bio_for_each_segment_all(bvec, bio, iter_all) {
+	bio_for_each_segment_all (bvec, bio, iter_all) {
 		struct page *page = bvec->bv_page;
 		struct page *bounce_page = NULL;
 		struct buffer_head *bh, *head;
@@ -179,17 +179,19 @@ static int ext4_end_io_end(ext4_io_end_t *io_end)
 	handle_t *handle = io_end->handle;
 	int ret = 0;
 
-	ext4_debug("ext4_end_io_nolock: io_end 0x%p from inode %lu,list->next 0x%p,"
-		   "list->prev 0x%p\n",
-		   io_end, inode->i_ino, io_end->list.next, io_end->list.prev);
+	ext4_debug(
+		"ext4_end_io_nolock: io_end 0x%p from inode %lu,list->next 0x%p,"
+		"list->prev 0x%p\n",
+		io_end, inode->i_ino, io_end->list.next, io_end->list.prev);
 
-	io_end->handle = NULL;	/* Following call will use up the handle */
+	io_end->handle = NULL; /* Following call will use up the handle */
 	ret = ext4_convert_unwritten_io_end_vec(handle, io_end);
 	if (ret < 0 && !ext4_forced_shutdown(EXT4_SB(inode->i_sb))) {
 		ext4_msg(inode->i_sb, KERN_EMERG,
 			 "failed to convert unwritten extents to written "
 			 "extents -- potential data loss!  "
-			 "(inode %lu, error %d)", inode->i_ino, ret);
+			 "(inode %lu, error %d)",
+			 inode->i_ino, ret);
 	}
 	ext4_clear_io_unwritten_flag(io_end);
 	ext4_release_io_end(io_end);
@@ -198,7 +200,7 @@ static int ext4_end_io_end(ext4_io_end_t *io_end)
 
 static void dump_completed_IO(struct inode *inode, struct list_head *head)
 {
-#ifdef	EXT4FS_DEBUG
+#ifdef EXT4FS_DEBUG
 	struct list_head *cur, *before, *after;
 	ext4_io_end_t *io_end, *io_end0, *io_end1;
 
@@ -206,7 +208,7 @@ static void dump_completed_IO(struct inode *inode, struct list_head *head)
 		return;
 
 	ext4_debug("Dump inode %lu completed io list\n", inode->i_ino);
-	list_for_each_entry(io_end, head, list) {
+	list_for_each_entry (io_end, head, list) {
 		cur = &io_end->list;
 		before = cur->prev;
 		io_end0 = container_of(before, ext4_io_end_t, list);
@@ -214,7 +216,7 @@ static void dump_completed_IO(struct inode *inode, struct list_head *head)
 		io_end1 = container_of(after, ext4_io_end_t, list);
 
 		ext4_debug("io 0x%p from inode %lu,prev 0x%p,next 0x%p\n",
-			    io_end, inode->i_ino, io_end0, io_end1);
+			   io_end, inode->i_ino, io_end0, io_end1);
 	}
 #endif
 }
@@ -291,7 +293,7 @@ void ext4_put_io_end_defer(ext4_io_end_t *io_end)
 {
 	if (atomic_dec_and_test(&io_end->count)) {
 		if (!(io_end->flag & EXT4_IO_END_UNWRITTEN) ||
-				list_empty(&io_end->list_vec)) {
+		    list_empty(&io_end->list_vec)) {
 			ext4_release_io_end(io_end);
 			return;
 		}
@@ -329,10 +331,8 @@ static void ext4_end_bio(struct bio *bio)
 	char b[BDEVNAME_SIZE];
 
 	if (WARN_ONCE(!io_end, "io_end is NULL: %s: sector %Lu len %u err %d\n",
-		      bio_devname(bio, b),
-		      (long long) bio->bi_iter.bi_sector,
-		      (unsigned) bio_sectors(bio),
-		      bio->bi_status)) {
+		      bio_devname(bio, b), (long long)bio->bi_iter.bi_sector,
+		      (unsigned)bio_sectors(bio), bio->bi_status)) {
 		ext4_finish_bio(bio);
 		bio_put(bio);
 		return;
@@ -342,13 +342,14 @@ static void ext4_end_bio(struct bio *bio)
 	if (bio->bi_status) {
 		struct inode *inode = io_end->inode;
 
-		ext4_warning(inode->i_sb, "I/O error %d writing to inode %lu "
+		ext4_warning(inode->i_sb,
+			     "I/O error %d writing to inode %lu "
 			     "starting block %llu)",
 			     bio->bi_status, inode->i_ino,
-			     (unsigned long long)
-			     bi_sector >> (inode->i_blkbits - 9));
+			     (unsigned long long)bi_sector >>
+				     (inode->i_blkbits - 9));
 		mapping_set_error(inode->i_mapping,
-				blk_status_to_errno(bio->bi_status));
+				  blk_status_to_errno(bio->bi_status));
 	}
 
 	if (io_end->flag & EXT4_IO_END_UNWRITTEN) {
@@ -374,9 +375,18 @@ void ext4_io_submit(struct ext4_io_submit *io)
 {
 	struct bio *bio = io->io_bio;
 
+#ifdef CONFIG_BIO_WITH_INODE_ID
+	struct inode *inode = io->io_end->inode;
+	unsigned long i_ino = inode->i_ino;
+
+	if (bio) { //&& S_ISREG(inode->i_mode)
+		bio->i_ino = i_ino;
+	}
+#endif
+
 	if (bio) {
-		int io_op_flags = io->io_wbc->sync_mode == WB_SYNC_ALL ?
-				  REQ_SYNC : 0;
+		int io_op_flags =
+			io->io_wbc->sync_mode == WB_SYNC_ALL ? REQ_SYNC : 0;
 		io->io_bio->bi_write_hint = io->io_end->inode->i_write_hint;
 		bio_set_op_attrs(io->io_bio, REQ_OP_WRITE, io_op_flags);
 		submit_bio(io->io_bio);
@@ -407,21 +417,25 @@ static void io_submit_init_bio(struct ext4_io_submit *io,
 	bio_set_dev(bio, bh->b_bdev);
 	bio->bi_end_io = ext4_end_bio;
 	bio->bi_private = ext4_get_io_end(io->io_end);
+
+	//copy from hank
+#ifdef CONFIG_BIO_WITH_INODE_ID
+	bio->i_ino = 1000;
+#endif
+
 	io->io_bio = bio;
 	io->io_next_block = bh->b_blocknr;
 	wbc_init_bio(io->io_wbc, bio);
 }
 
-static void io_submit_add_bh(struct ext4_io_submit *io,
-			     struct inode *inode,
-			     struct page *page,
-			     struct buffer_head *bh)
+static void io_submit_add_bh(struct ext4_io_submit *io, struct inode *inode,
+			     struct page *page, struct buffer_head *bh)
 {
 	int ret;
 
 	if (io->io_bio && (bh->b_blocknr != io->io_next_block ||
 			   !fscrypt_mergeable_bio_bh(io->io_bio, bh))) {
-submit_and_retry:
+	submit_and_retry:
 		ext4_io_submit(io);
 	}
 	if (io->io_bio == NULL) {
@@ -435,11 +449,8 @@ submit_and_retry:
 	io->io_next_block++;
 }
 
-int ext4_bio_write_page(struct ext4_io_submit *io,
-			struct page *page,
-			int len,
-			struct writeback_control *wbc,
-			bool keep_towrite)
+int ext4_bio_write_page(struct ext4_io_submit *io, struct page *page, int len,
+			struct writeback_control *wbc, bool keep_towrite)
 {
 	struct page *bounce_page = NULL;
 	struct inode *inode = page->mapping->host;
@@ -531,11 +542,12 @@ int ext4_bio_write_page(struct ext4_io_submit *io,
 					ext4_io_submit(io);
 				else
 					gfp_flags |= __GFP_NOFAIL;
-				congestion_wait(BLK_RW_ASYNC, HZ/50);
+				congestion_wait(BLK_RW_ASYNC, HZ / 50);
 				goto retry_encrypt;
 			}
 
-			printk_ratelimited(KERN_ERR "%s: ret = %d\n", __func__, ret);
+			printk_ratelimited(KERN_ERR "%s: ret = %d\n", __func__,
+					   ret);
 			redirty_page_for_writepage(wbc, page);
 			do {
 				clear_buffer_async_write(bh);
@@ -549,8 +561,8 @@ int ext4_bio_write_page(struct ext4_io_submit *io,
 	do {
 		if (!buffer_async_write(bh))
 			continue;
-		io_submit_add_bh(io, inode,
-				 bounce_page ? bounce_page : page, bh);
+		io_submit_add_bh(io, inode, bounce_page ? bounce_page : page,
+				 bh);
 		nr_submitted++;
 		clear_buffer_dirty(bh);
 	} while ((bh = bh->b_this_page) != head);
