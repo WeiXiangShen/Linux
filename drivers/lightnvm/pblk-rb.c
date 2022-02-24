@@ -21,6 +21,10 @@
 
 #include "pblk.h"
 
+#ifdef CONFIG_NVM_PBLK_Q_LEARNING
+#include <linux/sched.h>
+#endif
+
 static DECLARE_RWSEM(pblk_rb_lock);
 
 static void pblk_rb_data_free(struct pblk_rb *rb)
@@ -332,6 +336,11 @@ static void __pblk_rb_write_entry(struct pblk_rb *rb, void *data,
 
 	entry->w_ctx.lba = w_ctx.lba;
 	entry->w_ctx.ppa = w_ctx.ppa;
+    // add by Vynax
+#ifdef CONFIG_NVM_PBLK_Q_LEARNING
+	entry->ino_id = w_ctx.ino_id;
+    entry->proc_id = task_pid_nr(current);
+#endif
 }
 
 void pblk_rb_write_entry_user(struct pblk_rb *rb, void *data,
@@ -585,6 +594,12 @@ try:
 			io_schedule();
 			goto try;
 		}
+
+		// add by Vynax
+#ifdef CONFIG_NVM_PBLK_Q_LEARNING
+		printk(KERN_INFO "in_entry process id:%u file inode id:%lu\n",
+		       entry->proc_id, entry->ino_id);
+#endif
 
 		page = virt_to_page(entry->data);
 		if (!page) {

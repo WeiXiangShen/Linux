@@ -10,6 +10,11 @@ config BIO_WITH_INODE_ID
 	help
 	  This is designed for secure deletion on SMR drive.
 
+config BIO_WITH_PROCESS_ID
+	bool "Enable bio to carry process id on ext4"
+	help
+	  This is designed for Q-Learning on OCSSD.
+
 # Use unaligned word dcache accesses
 config DCACHE_WORD_ACCESS
        bool

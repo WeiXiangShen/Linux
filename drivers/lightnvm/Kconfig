@@ -29,6 +29,13 @@ config NVM_PBLK
 
 if NVM_PBLK
 
+config NVM_PBLK_Q_LEARNING
+	bool "Modification for adding Q-Learning into PBLK"
+    default n
+	help
+	  Modifies pblk_rb_entry, adds printk to allow Q-Learning running
+	  in PBLK.
+
 config NVM_PBLK_DEBUG
 	bool "PBlk Debug Support"
 	default n
@@ -37,6 +44,6 @@ config NVM_PBLK_DEBUG
 	  vocal error messages, and extra tracking fields in the pblk sysfs
 	  entries.
 
-endif # NVM_PBLK_DEBUG
+endif # NVM_PBLK
 
 endif # NVM

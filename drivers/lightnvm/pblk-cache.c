@@ -19,7 +19,7 @@
 #include "pblk.h"
 
 void pblk_write_to_cache(struct pblk *pblk, struct bio *bio,
-				unsigned long flags)
+			 unsigned long flags)
 {
 	struct pblk_w_ctx w_ctx;
 	sector_t lba = pblk_get_lba(bio);
@@ -29,6 +29,19 @@ void pblk_write_to_cache(struct pblk *pblk, struct bio *bio,
 	int i, ret;
 
 	start_time = bio_start_io_acct(bio);
+	// add by Vynax
+#ifdef CONFIG_NVM_PBLK_Q_LEARNING
+	pblk->i_ino = bio->i_ino;
+#endif
+
+	// add by Vynax
+#ifdef CONFIG_NVM_PBLK_Q_LEARNING
+	pblk->proc_id = bio->proc_id;
+	printk(KERN_INFO "bio process id:%u file inode id:%lu\n", bio->proc_id,
+	       bio->i_ino);
+	/*printk(KERN_INFO "pblk process id:%u file inode id:%lu\n",
+	       pblk->proc_id, pblk->i_ino);*/
+#endif
 
 	/* Update the write buffer head (mem) with the entries that we can
 	 * write. The write in itself cannot fail, so there is no need to
@@ -60,6 +73,10 @@ retry:
 		void *data = bio_data(bio);
 
 		w_ctx.lba = lba + i;
+        // add by Vynax
+#ifdef CONFIG_NVM_PBLK_Q_LEARNING
+		w_ctx.ino_id = bio->i_ino;
+#endif
 
 		pos = pblk_rb_wrap_pos(&pblk->rwb, bpos + i);
 		pblk_rb_write_entry_user(&pblk->rwb, data, w_ctx, pos);
@@ -116,14 +133,14 @@ retry:
 
 		pos = pblk_rb_wrap_pos(&pblk->rwb, bpos + valid_entries);
 		pblk_rb_write_entry_gc(&pblk->rwb, data, w_ctx, gc_rq->line,
-						gc_rq->paddr_list[i], pos);
+				       gc_rq->paddr_list[i], pos);
 
 		data += PBLK_EXPOSED_PAGE_SIZE;
 		valid_entries++;
 	}
 
 	WARN_ONCE(gc_rq->secs_to_gc != valid_entries,
-					"pblk: inconsistent GC write\n");
+		  "pblk: inconsistent GC write\n");
 
 	atomic64_add(valid_entries, &pblk->gc_wa);
 

@@ -255,6 +255,11 @@ struct bio {
 	unsigned long i_ino;
 #endif
 
+    // add by Vynax
+#ifdef CONFIG_BIO_WITH_PROCESS_ID
+	unsigned int proc_id;
+#endif
+
 	atomic_t __bi_cnt; /* pin count */
 
 	struct bio_vec *bi_io_vec; /* the actual vec list */
