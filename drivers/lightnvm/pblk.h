@@ -710,14 +710,14 @@ struct pblk {
 	struct pblk_gc gc;
 
 	// copy from hank
-#ifdef CONFIG_BIO_WITH_INODE_ID
+/* #ifdef CONFIG_BIO_WITH_INODE_ID
 	unsigned long i_ino;
-#endif
+#endif */
 
 	// add by Vynax
-#ifdef CONFIG_BIO_WITH_PROCESS_ID
+/* #ifdef CONFIG_BIO_WITH_PROCESS_ID
 	unsigned int proc_id;
-#endif
+#endif */
 };
 
 struct pblk_line_ws {

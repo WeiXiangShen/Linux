@@ -597,8 +597,8 @@ try:
 
 		// add by Vynax
 #ifdef CONFIG_NVM_PBLK_Q_LEARNING
-		printk(KERN_INFO "in_entry process id:%u file inode id:%lu\n",
-		       entry->proc_id, entry->ino_id);
+		printk(KERN_INFO "in_entry process id:%u file inode id:%lu lba:%llu\n",
+		       entry->proc_id, entry->ino_id, entry->w_ctx.lba);
 #endif
 
 		page = virt_to_page(entry->data);

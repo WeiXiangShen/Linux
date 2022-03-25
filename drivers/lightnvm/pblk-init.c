@@ -74,7 +74,7 @@ static blk_qc_t pblk_submit_bio(struct bio *bio)
 
 		// add by Vynax
 #ifdef CONFIG_NVM_PBLK_Q_LEARNING
-		bio->proc_id = task_pid_nr(current);
+		// bio->proc_id = task_pid_nr(current);
 		/*printk(KERN_INFO
 		       "process_id:%d bio_process_id:%u file inode id:%lu\n",
 		       task_pid_nr(current), bio->proc_id, bio->i_ino);*/
