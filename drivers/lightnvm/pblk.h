@@ -148,10 +148,14 @@ struct pblk_w_ctx {
 // add by Vynax
 #ifdef CONFIG_NVM_PBLK_Q_LEARNING
 struct pblk_q_learning {
-	unsigned int proc_id; /* process id for an entry */
-	unsigned int ino_id; /* inode id to file on an entry */
+	// unsigned int proc_id; /* process id for an entry */
+	// unsigned int ino_id; /* inode id to file on an entry */
 	// struct pblk_w_ctx w_ctx; /* Context for this entry */
 	// struct list_head index; /* List head to enable indexes */
+    unsigned int *int_array;
+    unsigned long long total_valid;
+    unsigned long long total_padded;
+    unsigned long long total_nr_secs;
 };
 #endif
 
@@ -718,6 +722,12 @@ struct pblk {
 /* #ifdef CONFIG_BIO_WITH_PROCESS_ID
 	unsigned int proc_id;
 #endif */
+
+    // add by Vynax
+#ifdef CONFIG_NVM_PBLK_Q_LEARNING
+	struct pblk_q_learning q_learn;
+    unsigned long long data_amount;
+#endif
 };
 
 struct pblk_line_ws {

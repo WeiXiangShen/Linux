@@ -21,7 +21,10 @@
 
 #include "pblk.h"
 #include "pblk-trace.h"
+// add by Vynax
+#ifdef CONFIG_NVM_PBLK_Q_LEARNING
 #include <linux/sched.h>
+#endif
 
 static unsigned int write_buffer_size;
 
@@ -78,6 +81,8 @@ static blk_qc_t pblk_submit_bio(struct bio *bio)
 		/*printk(KERN_INFO
 		       "process_id:%d bio_process_id:%u file inode id:%lu\n",
 		       task_pid_nr(current), bio->proc_id, bio->i_ino);*/
+    pblk->data_amount += pblk_get_secs(bio);
+    printk(KERN_INFO "rq_amount:%llu \n", pblk->data_amount);
 #endif
 
 		if (pblk_get_secs(bio) > pblk_rl_max_io(&pblk->rl))
@@ -1160,6 +1165,28 @@ static sector_t pblk_capacity(void *private)
 	return pblk->capacity * NR_PHY_IN_LOG;
 }
 
+// add by Vynax
+#ifdef CONFIG_NVM_PBLK_Q_LEARNING
+static int pblk_q_learning_init(struct pblk *pblk)
+{
+    struct pblk_q_learning *q_learn = &pblk->q_learn;
+    q_learn->total_valid = 0;
+    q_learn->total_padded = 0;
+    q_learn->total_nr_secs = 0;
+
+    q_learn->int_array = kcalloc(10, sizeof(unsigned int), GFP_KERNEL);
+    if (!q_learn->int_array)
+		return -ENOMEM;
+    
+    return 0;
+}
+static void pblk_q_learning_free(struct pblk *pblk)
+{
+    struct pblk_q_learning *q_learn = &pblk->q_learn;
+    kfree(q_learn->int_array);
+}
+#endif
+
 static void *pblk_init(struct nvm_tgt_dev *dev, struct gendisk *tdisk,
 		       int flags)
 {
@@ -1220,10 +1247,19 @@ static void *pblk_init(struct nvm_tgt_dev *dev, struct gendisk *tdisk,
 	atomic_long_set(&pblk->write_failed, 0);
 	atomic_long_set(&pblk->erase_failed, 0);
 
+    // add by Vynax
+#ifdef CONFIG_NVM_PBLK_Q_LEARNING
+	ret = pblk_q_learning_init(pblk);
+	if (ret) {
+		pblk_err(pblk, "could not initialize pblk q learning\n");
+		goto fail;
+	}
+#endif
+
 	ret = pblk_core_init(pblk);
 	if (ret) {
 		pblk_err(pblk, "could not initialize core\n");
-		goto fail;
+		goto fail_q_learning;
 	}
 
 	ret = pblk_lines_init(pblk);
@@ -1289,6 +1325,13 @@ fail_free_lines:
 	pblk_lines_free(pblk);
 fail_free_core:
 	pblk_core_free(pblk);
+
+// add by Vynax
+#ifdef CONFIG_NVM_PBLK_Q_LEARNING
+fail_q_learning:
+    pblk_q_learning_free(pblk);
+#endif
+
 fail:
 	kfree(pblk);
 	return ERR_PTR(ret);

@@ -32,6 +32,10 @@ static int pblk_map_page_data(struct pblk *pblk, unsigned int sentry,
 	u64 paddr;
 	int nr_secs = pblk->min_write_pgs;
 	int i;
+    // add by Vynax
+#ifdef CONFIG_NVM_PBLK_Q_LEARNING
+    struct pblk_q_learning *q_learn = &pblk->q_learn;
+#endif
 
 	if (!line)
 		return -ENOSPC;
@@ -87,6 +91,16 @@ static int pblk_map_page_data(struct pblk *pblk, unsigned int sentry,
 			meta->lba = addr_empty;
 			__pblk_map_invalidate(pblk, line, paddr);
 		}
+
+        // add by Vynax
+#ifdef CONFIG_NVM_PBLK_Q_LEARNING
+        if ( i< 10 )
+        {
+            q_learn->int_array[i]++;
+            printk(KERN_INFO "init array[%d]:%u\n", i, q_learn->int_array[i]);
+        }
+#endif
+
 	}
 
 	pblk_down_rq(pblk, ppa_list[0], lun_bitmap);

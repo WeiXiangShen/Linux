@@ -323,6 +323,15 @@ static int pblk_setup_w_rq(struct pblk *pblk, struct nvm_rq *rqd,
 	unsigned long *lun_bitmap;
 	int ret;
 
+    // add by Vynax
+#ifdef CONFIG_NVM_PBLK_Q_LEARNING
+    struct pblk_q_learning *q_learn = &pblk->q_learn;
+    q_learn->total_valid += valid;
+    q_learn->total_padded += padded;
+    q_learn->total_nr_secs += nr_secs;
+    printk(KERN_INFO "valid:%llu padded:%llu nr_secs:%llu\n", q_learn->total_valid, q_learn->total_padded, q_learn->total_nr_secs);
+#endif
+
 	lun_bitmap = kzalloc(lm->lun_bitmap_len, GFP_KERNEL);
 	if (!lun_bitmap)
 		return -ENOMEM;
