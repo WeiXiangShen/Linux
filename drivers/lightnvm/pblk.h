@@ -145,14 +145,27 @@ struct pblk_w_ctx {
 #endif
 };
 
-// add by Vynax
 #ifdef CONFIG_NVM_PBLK_Q_LEARNING
+
+#define PBLK_UPPER_LIMIT 1000
+#define PBLK_LBA_UPPER_LIMIT 1459617792
+
+/* #define PBLK_PROCESS_BUCKET 2 // // Buckets for Process ID
+#define PBLK_FILE_BUCKET 5 // Buckets for File ID
+#define PBLK_LBA_BUCKET PBLK_LBA_UPPER_LIMIT / 4096 // Buckets for Logical Block Address
+#define PBLK_DATA_BUCKET 4 // Buckets for Data quantity */
+
+#define PBLK_PROCESS_BUCKET 10 // // Buckets for Process ID
+#define PBLK_FILE_BUCKET 10 // Buckets for File ID
+#define PBLK_LBA_BUCKET 10 // Buckets for Logical Block Address
+#define PBLK_DATA_BUCKET 10 // Buckets for Data quantity
+#define PBLK_OPEN_LINE  4   // How many lines we can choose
 struct pblk_q_learning {
 	// unsigned int proc_id; /* process id for an entry */
 	// unsigned int ino_id; /* inode id to file on an entry */
 	// struct pblk_w_ctx w_ctx; /* Context for this entry */
 	// struct list_head index; /* List head to enable indexes */
-    unsigned int *int_array;
+    int *****q_table;
     unsigned long long total_valid;
     unsigned long long total_padded;
     unsigned long long total_nr_secs;

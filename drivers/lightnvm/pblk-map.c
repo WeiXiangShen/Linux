@@ -96,8 +96,9 @@ static int pblk_map_page_data(struct pblk *pblk, unsigned int sentry,
 #ifdef CONFIG_NVM_PBLK_Q_LEARNING
         if ( i< 10 )
         {
-            q_learn->int_array[i]++;
-            printk(KERN_INFO "init array[%d]:%u\n", i, q_learn->int_array[i]);
+            int pblk_lba_bucket_upper_limit = PBLK_LBA_BUCKET - 1;
+            q_learn->q_table[i][i][i][i][i]++;
+            printk(KERN_INFO "q_table[%d][%d][%d][%d][%d]:%u\n", i, i, i, i, i, q_learn->q_table[i][i][i][i][i]);
         }
 #endif
 

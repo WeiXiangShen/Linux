@@ -1169,21 +1169,95 @@ static sector_t pblk_capacity(void *private)
 #ifdef CONFIG_NVM_PBLK_Q_LEARNING
 static int pblk_q_learning_init(struct pblk *pblk)
 {
+    int i, j, k, l; // record every loop ends where
     struct pblk_q_learning *q_learn = &pblk->q_learn;
     q_learn->total_valid = 0;
     q_learn->total_padded = 0;
     q_learn->total_nr_secs = 0;
 
-    q_learn->int_array = kcalloc(10, sizeof(unsigned int), GFP_KERNEL);
-    if (!q_learn->int_array)
+    printk(KERN_INFO "PBLK_PROCESS_BUCKET : %d\n",PBLK_PROCESS_BUCKET);
+    printk(KERN_INFO "PBLK_FILE_BUCKET : %d\n",PBLK_FILE_BUCKET);
+    printk(KERN_INFO "PBLK_LBA_BUCKET : %d\n",PBLK_LBA_BUCKET);
+    printk(KERN_INFO "PBLK_DATA_BUCKET : %d\n",PBLK_DATA_BUCKET);
+    printk(KERN_INFO "PBLK_OPEN_LINE : %d\n",PBLK_OPEN_LINE);
+
+    q_learn->q_table = kvcalloc(PBLK_PROCESS_BUCKET, sizeof(int*), GFP_KERNEL);
+    if (!q_learn->q_table)
 		return -ENOMEM;
-    
+    for ( i=0 ; i<PBLK_PROCESS_BUCKET ; i++ ){
+        q_learn->q_table[i] = kvcalloc(PBLK_FILE_BUCKET, sizeof(int*), GFP_KERNEL);
+        if (!q_learn->q_table[i]){
+            break;
+            goto free_q_table_PROCESS_BUCKET;
+        }
+        for ( j=0 ; j< PBLK_FILE_BUCKET ;j++ ){
+            q_learn->q_table[i][j] = kvcalloc(PBLK_LBA_BUCKET, sizeof(int*), GFP_KERNEL);
+            if (!q_learn->q_table[i][j]){
+                break;
+                goto free_q_table_PROCESS_BUCKET;
+            }
+            for ( k=0 ; k<PBLK_LBA_BUCKET ; k++ ){
+                q_learn->q_table[i][j][k] = kvcalloc(PBLK_DATA_BUCKET, sizeof(int*), GFP_KERNEL);
+                if (!q_learn->q_table[i][j][k]){
+                    break;
+                    goto free_q_table_PROCESS_BUCKET;
+                }
+                for ( l=0 ; l<PBLK_DATA_BUCKET ; l++ ){
+                    q_learn->q_table[i][j][k][l] = kvcalloc(PBLK_OPEN_LINE, sizeof(int), GFP_KERNEL);
+                    if (!q_learn->q_table[i][j][k][l]){
+                        break;
+                        goto free_q_table_PROCESS_BUCKET;
+                    }
+                }
+            }
+        }
+    }
     return 0;
+
+free_q_table_PROCESS_BUCKET:
+for ( i=0;i<PBLK_PROCESS_BUCKET;i++){
+    if (q_learn->q_table[i]){
+        for ( j=0 ; j< PBLK_FILE_BUCKET ;j++ ){
+            if (q_learn->q_table[i][j]){
+                for ( k=0; k< PBLK_LBA_BUCKET ; k++ ){
+                    if (q_learn->q_table[i][j][k]){
+                        for ( l=0; l< PBLK_DATA_BUCKET ; l++ ){
+                            if (q_learn->q_table[i][j][k][l])
+                                kvfree(q_learn->q_table[i][j][k][l]);
+                        }
+                        kvfree(q_learn->q_table[i][j][k]);
+                    }
+                }
+                kvfree(q_learn->q_table[i][j]);
+            }
+        }
+        kvfree(q_learn->q_table[i]);
+    }
+}
+
+free_q_table:
+    kvfree(q_learn->q_table);
+    
+    return -ENOMEM;
 }
 static void pblk_q_learning_free(struct pblk *pblk)
 {
+    int i, j, k, l;
     struct pblk_q_learning *q_learn = &pblk->q_learn;
-    kfree(q_learn->int_array);
+    for ( i=0 ; i<PBLK_PROCESS_BUCKET ; i++ ){
+        for ( j=0 ; j< PBLK_FILE_BUCKET ; j++ ){
+            for ( k=0; k< PBLK_LBA_BUCKET ; k++ ){
+                for ( l=0; l< PBLK_DATA_BUCKET ; l++ ){
+                    if (q_learn->q_table[i][j][k][l])
+                        kvfree(q_learn->q_table[i][j][k][l]);
+                }
+                kvfree(q_learn->q_table[i][j][k]);
+            }
+            kvfree(q_learn->q_table[i][j]);
+        }
+        kvfree(q_learn->q_table[i]);
+    }
+    kvfree(q_learn->q_table);
 }
 #endif
 
