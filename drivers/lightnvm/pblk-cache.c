@@ -77,6 +77,7 @@ retry:
         // add by Vynax
 #ifdef CONFIG_NVM_PBLK_Q_LEARNING
 		w_ctx.ino_id = bio->i_ino;
+        w_ctx.rq_size = nr_entries;
 #endif
 
 		pos = pblk_rb_wrap_pos(&pblk->rwb, bpos + i);
