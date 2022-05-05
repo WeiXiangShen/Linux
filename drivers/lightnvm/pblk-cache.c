@@ -38,8 +38,8 @@ void pblk_write_to_cache(struct pblk *pblk, struct bio *bio,
 	// add by Vynax
 #ifdef CONFIG_NVM_PBLK_Q_LEARNING
 	// pblk->proc_id = bio->proc_id;
-	printk(KERN_INFO "bio process id:%u file inode id:%lu\n", task_pid_nr(current),
-	       bio->i_ino);
+	/* printk(KERN_INFO "bio process id:%u file inode id:%lu\n", task_pid_nr(current),
+	       bio->i_ino); */
 	/*printk(KERN_INFO "pblk process id:%u file inode id:%lu\n",
 	       pblk->proc_id, pblk->i_ino);*/
 #endif
@@ -78,6 +78,10 @@ retry:
 #ifdef CONFIG_NVM_PBLK_Q_LEARNING
 		w_ctx.ino_id = bio->i_ino;
         w_ctx.rq_size = nr_entries;
+        if ( i == nr_entries - 1 )
+            w_ctx.rq_finish = true;
+        else
+            w_ctx.rq_finish = false;
 #endif
 
 		pos = pblk_rb_wrap_pos(&pblk->rwb, bpos + i);

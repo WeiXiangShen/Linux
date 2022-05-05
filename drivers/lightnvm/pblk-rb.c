@@ -338,9 +338,10 @@ static void __pblk_rb_write_entry(struct pblk_rb *rb, void *data,
 	entry->w_ctx.ppa = w_ctx.ppa;
     // add by Vynax
 #ifdef CONFIG_NVM_PBLK_Q_LEARNING
-	entry->ino_id = w_ctx.ino_id;
-    entry->proc_id = task_pid_nr(current);
-    entry->rq_size = w_ctx.rq_size;
+	entry->w_ctx.ino_id = w_ctx.ino_id;
+    entry->w_ctx.proc_id = task_pid_nr(current);
+    entry->w_ctx.rq_size = w_ctx.rq_size;
+    entry->w_ctx.rq_finish = w_ctx.rq_finish;
 #endif
 }
 
@@ -598,8 +599,9 @@ try:
 
 		// add by Vynax
 #ifdef CONFIG_NVM_PBLK_Q_LEARNING
-		printk(KERN_INFO "in_entry process id:%u file inode id:%lu lba:%llu request size:%u\n",
-		       entry->proc_id, entry->ino_id, entry->w_ctx.lba, entry->rq_size);
+		printk(KERN_INFO "in_proc_id:%u file id:%lu lba:%llu rq_size:%u rq_finish:%s\n",
+		       entry->w_ctx.proc_id, entry->w_ctx.ino_id, entry->w_ctx.lba, entry->w_ctx.rq_size,
+               entry->w_ctx.rq_finish ? "true" : "false");
 #endif
 
 		page = virt_to_page(entry->data);

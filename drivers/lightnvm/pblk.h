@@ -141,8 +141,10 @@ struct pblk_w_ctx {
 
     // add by Vynax
 #ifdef CONFIG_NVM_PBLK_Q_LEARNING
+    unsigned int proc_id;
 	unsigned long ino_id; /* inode id to file on this entry */
     unsigned int  rq_size;
+    bool rq_finish;
 #endif
 };
 
@@ -153,7 +155,7 @@ struct pblk_w_ctx {
 
 #define PBLK_PROCESS_BUCKET 3 // // Buckets for Process ID
 #define PBLK_FILE_BUCKET 5 // Buckets for File ID
-#define PBLK_LBA_BUCKET PBLK_LBA_UPPER_LIMIT / 4096 // Buckets for Logical Block Address
+#define PBLK_LBA_BUCKET PBLK_LBA_UPPER_LIMIT / PBLK_EXPOSED_PAGE_SIZE // Buckets for Logical Block Address
 #define PBLK_DATA_BUCKET 4 // Buckets for Data quantity
 
 /* #define PBLK_PROCESS_BUCKET 10 // // Buckets for Process ID
@@ -188,6 +190,7 @@ struct pblk_rb_entry {
 	unsigned int proc_id; /* process id for this entry */
 	unsigned long ino_id; /* inode id to file on this entry */
     unsigned int rq_size;
+    bool rq_finish;
 #endif
 };
 
