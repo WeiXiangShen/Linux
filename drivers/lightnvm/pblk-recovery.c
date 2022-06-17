@@ -827,7 +827,7 @@ next:
 		spin_unlock(&l_mg->free_lock);
 	} else {
 		spin_lock(&l_mg->free_lock);
-		l_mg->data_line = data_line;
+		l_mg->data_line[0] = data_line;
 		/* Allocate next line for preparation */
 		l_mg->data_next = pblk_line_get(pblk);
 		if (l_mg->data_next) {
@@ -860,7 +860,7 @@ int pblk_recov_pad(struct pblk *pblk)
 	int ret = 0;
 
 	spin_lock(&l_mg->free_lock);
-	line = l_mg->data_line;
+	line = l_mg->data_line[0];
 	left_msecs = line->left_msecs;
 	spin_unlock(&l_mg->free_lock);
 

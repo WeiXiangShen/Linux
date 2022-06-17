@@ -168,6 +168,7 @@ static ssize_t pblk_sysfs_lines(struct pblk *pblk, char *page)
 	struct pblk_line_meta *lm = &pblk->lm;
 	struct pblk_line_mgmt *l_mg = &pblk->l_mg;
 	struct pblk_line *line;
+    struct pblk_line *data_line = pblk_line_get_data(pblk);
 	ssize_t sz = 0;
 	int nr_free_lines;
 	int cur_data, cur_log;
@@ -181,7 +182,7 @@ static ssize_t pblk_sysfs_lines(struct pblk *pblk, char *page)
 	int map_weight = 0, meta_weight = 0;
 
 	spin_lock(&l_mg->free_lock);
-	cur_data = (l_mg->data_line) ? l_mg->data_line->id : -1;
+	cur_data = (data_line) ? data_line->id : -1;
 	cur_log = (l_mg->log_line) ? l_mg->log_line->id : -1;
 	nr_free_lines = l_mg->nr_free_lines;
 
@@ -256,21 +257,21 @@ static ssize_t pblk_sysfs_lines(struct pblk *pblk, char *page)
 	spin_unlock(&l_mg->gc_lock);
 
 	spin_lock(&l_mg->free_lock);
-	if (l_mg->data_line) {
-		cur_sec = l_mg->data_line->cur_sec;
-		msecs = l_mg->data_line->left_msecs;
-		vsc = le32_to_cpu(*l_mg->data_line->vsc);
-		sec_in_line = l_mg->data_line->sec_in_line;
+	if (data_line) {
+		cur_sec = data_line->cur_sec;
+		msecs = data_line->left_msecs;
+		vsc = le32_to_cpu(*data_line->vsc);
+		sec_in_line = data_line->sec_in_line;
 		meta_weight = bitmap_weight(&l_mg->meta_bitmap,
 							PBLK_DATA_LINES);
 
-		spin_lock(&l_mg->data_line->lock);
-		if (l_mg->data_line->map_bitmap)
-			map_weight = bitmap_weight(l_mg->data_line->map_bitmap,
+		spin_lock(&data_line->lock);
+		if (data_line->map_bitmap)
+			map_weight = bitmap_weight(data_line->map_bitmap,
 							lm->sec_per_line);
 		else
 			map_weight = 0;
-		spin_unlock(&l_mg->data_line->lock);
+		spin_unlock(&data_line->lock);
 	}
 	spin_unlock(&l_mg->free_lock);
 

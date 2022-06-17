@@ -547,7 +547,7 @@ struct pblk_line_mgmt {
 	struct list_head gc_empty_list; /* Full lines close, all valid */
 
 	struct pblk_line *log_line; /* Current FTL log line */
-	struct pblk_line *data_line; /* Current data line */
+	struct pblk_line **data_line; /* Current data line */
 	struct pblk_line *log_next; /* Next FTL log line */
 	struct pblk_line *data_next; /* Next data line */
 
