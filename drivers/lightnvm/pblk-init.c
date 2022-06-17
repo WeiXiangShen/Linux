@@ -1169,7 +1169,7 @@ static sector_t pblk_capacity(void *private)
 #ifdef CONFIG_NVM_PBLK_Q_LEARNING
 static int pblk_q_learning_init(struct pblk *pblk)
 {
-    int i, j, k, l; // record every loop ends where
+    // int i, j, k, l; // record every loop ends where
     struct pblk_q_learning *q_learn = &pblk->q_learn;
     q_learn->total_valid = 0;
     q_learn->total_padded = 0;
@@ -1181,8 +1181,8 @@ static int pblk_q_learning_init(struct pblk *pblk)
     printk(KERN_INFO "PBLK_DATA_BUCKET : %d\n",PBLK_DATA_BUCKET);
     printk(KERN_INFO "PBLK_OPEN_LINE : %d\n",PBLK_OPEN_LINE);
 
-    q_learn->q_table = kvzalloc( PBLK_PROCESS_BUCKET * PBLK_FILE_BUCKET * PBLK_LBA_BUCKET * PBLK_DATA_BUCKET * PBLK_OPEN_LINE * sizeof(int) , GFP_KERNEL );
-
+    // q_learn->q_table = kvzalloc( PBLK_PROCESS_BUCKET * PBLK_FILE_BUCKET * PBLK_LBA_BUCKET * PBLK_DATA_BUCKET * PBLK_OPEN_LINE * sizeof(int) , GFP_KERNEL );
+    q_learn->q_table = kvzalloc( 1 * PBLK_OPEN_LINE * sizeof(int) , GFP_KERNEL );
     if (!q_learn->q_table)
 		return -ENOMEM;
     // q_learn->q_table = kvcalloc(PBLK_PROCESS_BUCKET, sizeof(int*), GFP_KERNEL);
@@ -1191,7 +1191,7 @@ static int pblk_q_learning_init(struct pblk *pblk)
 }
 static void pblk_q_learning_free(struct pblk *pblk)
 {
-    int i, j, k, l;
+    // int i, j, k, l;
     struct pblk_q_learning *q_learn = &pblk->q_learn;
     /* for ( i=0 ; i<PBLK_PROCESS_BUCKET ; i++ ){
         for ( j=0 ; j< PBLK_FILE_BUCKET ; j++ ){
