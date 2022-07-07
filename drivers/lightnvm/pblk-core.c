@@ -1213,9 +1213,10 @@ int pblk_line_recov_alloc(struct pblk *pblk, struct pblk_line *line)
 {
 	struct pblk_line_mgmt *l_mg = &pblk->l_mg;
 	int ret;
+    int *DLI = &l_mg->DLI;
 
 	spin_lock(&l_mg->free_lock);
-	l_mg->data_line[0] = line;
+	l_mg->data_line[*DLI] = line;
 	list_del(&line->list);
 
 	ret = pblk_line_prepare(pblk, line);
@@ -1335,12 +1336,13 @@ static struct pblk_line *pblk_line_retry(struct pblk *pblk,
 {
 	struct pblk_line_mgmt *l_mg = &pblk->l_mg;
 	struct pblk_line *retry_line;
-
+    int *DLI = &l_mg->DLI;
+    
 retry:
 	spin_lock(&l_mg->free_lock);
 	retry_line = pblk_line_get(pblk);
 	if (!retry_line) {
-		l_mg->data_line[0] = NULL;
+		l_mg->data_line[*DLI] = NULL;
 		spin_unlock(&l_mg->free_lock);
 		return NULL;
 	}
@@ -1353,7 +1355,7 @@ retry:
 
 	pblk_line_reinit(line);
 
-	l_mg->data_line[0] = retry_line;
+	l_mg->data_line[*DLI] = retry_line;
 	spin_unlock(&l_mg->free_lock);
 
 	pblk_rl_free_lines_dec(&pblk->rl, line, false);
@@ -1375,6 +1377,7 @@ struct pblk_line *pblk_line_get_first_data(struct pblk *pblk)
 {
 	struct pblk_line_mgmt *l_mg = &pblk->l_mg;
 	struct pblk_line *line;
+    int *DLI = &l_mg->DLI;
 
 	spin_lock(&l_mg->free_lock);
 	line = pblk_line_get(pblk);
@@ -1385,7 +1388,7 @@ struct pblk_line *pblk_line_get_first_data(struct pblk *pblk)
 
 	line->seq_nr = l_mg->d_seq_nr++;
 	line->type = PBLK_LINETYPE_DATA;
-	l_mg->data_line[0] = line;
+	l_mg->data_line[*DLI] = line;
 
 	pblk_line_setup_metadata(line, l_mg, &pblk->lm);
 
@@ -1529,11 +1532,12 @@ void __pblk_pipeline_flush(struct pblk *pblk)
 void __pblk_pipeline_stop(struct pblk *pblk)
 {
 	struct pblk_line_mgmt *l_mg = &pblk->l_mg;
+    int *DLI = &l_mg->DLI;
 
 	spin_lock(&l_mg->free_lock);
 	pblk->state = PBLK_STATE_STOPPED;
 	trace_pblk_state(pblk_disk_name(pblk), pblk->state);
-	l_mg->data_line[0] = NULL;
+	l_mg->data_line[*DLI] = NULL;
 	l_mg->data_next = NULL;
 	spin_unlock(&l_mg->free_lock);
 }
@@ -1549,14 +1553,15 @@ struct pblk_line *pblk_line_replace_data(struct pblk *pblk)
 	struct pblk_line_mgmt *l_mg = &pblk->l_mg;
 	struct pblk_line *cur, *new = NULL;
 	unsigned int left_seblks;
+    int *DLI = &l_mg->DLI;
 
 	new = l_mg->data_next;
 	if (!new)
 		goto out;
 
 	spin_lock(&l_mg->free_lock);
-	cur = l_mg->data_line[0];
-	l_mg->data_line[0] = new;
+	cur = l_mg->data_line[*DLI];
+	l_mg->data_line[*DLI] = new;
 
 	pblk_line_setup_metadata(new, l_mg, &pblk->lm);
 	spin_unlock(&l_mg->free_lock);
@@ -1721,7 +1726,9 @@ int pblk_blk_erase_async(struct pblk *pblk, struct ppa_addr ppa)
 
 struct pblk_line *pblk_line_get_data(struct pblk *pblk)
 {
-	return pblk->l_mg.data_line[0];
+    struct pblk_line_mgmt *l_mg = &pblk->l_mg;
+    int *DLI = &l_mg->DLI;
+	return pblk->l_mg.data_line[*DLI];
 }
 
 /* For now, always erase next line */

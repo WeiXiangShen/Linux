@@ -841,11 +841,16 @@ static int pblk_line_mg_init(struct pblk *pblk)
 	struct nvm_geo *geo = &dev->geo;
 	struct pblk_line_mgmt *l_mg = &pblk->l_mg;
 	struct pblk_line_meta *lm = &pblk->lm;
+    int *DLI = &l_mg->DLI;
 	int i, bb_distance;
 
 	l_mg->nr_lines = geo->num_chk;
-	l_mg->data_line = kvcalloc( 1 , sizeof(struct pblk_line*), GFP_KERNEL );
-    l_mg->log_line = l_mg->data_line[0] = NULL;
+	l_mg->data_line = kcalloc( PBLK_OPEN_LINE , sizeof(struct pblk_line*), GFP_KERNEL );
+    *DLI = 0;
+    l_mg->log_line = l_mg->data_line[*DLI] = NULL;
+    *DLI = 1;
+    l_mg->data_line[*DLI] = NULL;
+    *DLI = 0;
 	l_mg->l_seq_nr = l_mg->d_seq_nr = 0;
 	l_mg->nr_free_lines = 0;
 	bitmap_zero(&l_mg->meta_bitmap, PBLK_DATA_LINES);

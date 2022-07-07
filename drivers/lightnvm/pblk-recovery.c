@@ -661,6 +661,7 @@ struct pblk_line *pblk_recov_l2p(struct pblk *pblk)
 	int meta_line;
 	int i, valid_uuid = 0;
 	LIST_HEAD(recov_list);
+    int *DLI = &l_mg->DLI;
 
 	/* TODO: Implement FTL snapshot */
 
@@ -827,7 +828,7 @@ next:
 		spin_unlock(&l_mg->free_lock);
 	} else {
 		spin_lock(&l_mg->free_lock);
-		l_mg->data_line[0] = data_line;
+		l_mg->data_line[*DLI] = data_line;
 		/* Allocate next line for preparation */
 		l_mg->data_next = pblk_line_get(pblk);
 		if (l_mg->data_next) {
@@ -856,11 +857,12 @@ int pblk_recov_pad(struct pblk *pblk)
 {
 	struct pblk_line *line;
 	struct pblk_line_mgmt *l_mg = &pblk->l_mg;
+    int *DLI = &l_mg->DLI;
 	int left_msecs;
 	int ret = 0;
 
 	spin_lock(&l_mg->free_lock);
-	line = l_mg->data_line[0];
+	line = l_mg->data_line[*DLI];
 	left_msecs = line->left_msecs;
 	spin_unlock(&l_mg->free_lock);
 

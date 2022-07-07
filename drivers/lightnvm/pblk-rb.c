@@ -599,9 +599,9 @@ try:
 
 		// add by Vynax
 #ifdef CONFIG_NVM_PBLK_Q_LEARNING
-		printk(KERN_INFO "in_proc_id:%u file id:%lu lba:%llu rq_size:%u rq_finish:%s\n",
+		/* printk(KERN_INFO "in_proc_id:%u file id:%lu lba:%llu rq_size:%u rq_finish:%s\n",
 		       entry->w_ctx.proc_id, entry->w_ctx.ino_id, entry->w_ctx.lba, entry->w_ctx.rq_size,
-               entry->w_ctx.rq_finish ? "true" : "false");
+               entry->w_ctx.rq_finish ? "true" : "false"); */
 #endif
 
 		page = virt_to_page(entry->data);
