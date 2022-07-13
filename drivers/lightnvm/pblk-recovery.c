@@ -661,7 +661,8 @@ struct pblk_line *pblk_recov_l2p(struct pblk *pblk)
 	int meta_line;
 	int i, valid_uuid = 0;
 	LIST_HEAD(recov_list);
-    int *DLI = &l_mg->DLI;
+    // int *DLI = &l_mg->DLI;
+    printk(KERN_INFO "pblk_recov_l2p : start\n");
 
 	/* TODO: Implement FTL snapshot */
 
@@ -742,6 +743,8 @@ struct pblk_line *pblk_recov_l2p(struct pblk *pblk)
 						line->id, smeta_buf->seq_nr);
 	}
 
+    printk(KERN_INFO "pblk_recov_l2p_for : end\n");
+
 	if (!found_lines) {
 		guid_gen(&pblk->instance_uuid);
 
@@ -752,6 +755,8 @@ struct pblk_line *pblk_recov_l2p(struct pblk *pblk)
 
 		goto out;
 	}
+
+    printk(KERN_INFO "pblk_recov_l2p_if_found_lines : end\n");
 
 	/* Verify closed blocks and recover this portion of L2P table*/
 	list_for_each_entry_safe(line, tline, &recov_list, list) {
@@ -821,6 +826,9 @@ next:
 		}
 	}
 
+    printk(KERN_INFO "pblk_recov_l2p_list_for_each_entry_safe : end\n");
+    printk(KERN_INFO "pblk_recov_l2p_open_lines : %d\n", open_lines);
+
 	if (!open_lines) {
 		spin_lock(&l_mg->free_lock);
 		WARN_ON_ONCE(!test_and_clear_bit(meta_line,
@@ -828,7 +836,9 @@ next:
 		spin_unlock(&l_mg->free_lock);
 	} else {
 		spin_lock(&l_mg->free_lock);
-		l_mg->data_line[*DLI] = data_line;
+        // printk(KERN_INFO "data_line[0] line get start\n");
+		l_mg->data_line[0] = data_line;
+        // printk(KERN_INFO "data_line[0] line get end\n");
 		/* Allocate next line for preparation */
 		l_mg->data_next = pblk_line_get(pblk);
 		if (l_mg->data_next) {
@@ -836,11 +846,23 @@ next:
 			l_mg->data_next->type = PBLK_LINETYPE_DATA;
 			is_next = 1;
 		}
+        /* l_mg->data_line[1] = pblk_line_get(pblk);
+        if (l_mg->data_line[1]) {
+            printk(KERN_INFO "data_line[1] line get completed\n");
+			l_mg->data_line[1]->seq_nr = l_mg->d_seq_nr++;
+			l_mg->data_line[1]->type = PBLK_LINETYPE_DATA;
+		}
+        else{
+            printk(KERN_INFO "data_line[1] line get failed\n");
+        } */
 		spin_unlock(&l_mg->free_lock);
 	}
 
 	if (is_next)
 		pblk_line_erase(pblk, l_mg->data_next);
+    
+    /* if (is_next)
+		pblk_line_erase(pblk, l_mg->data_line[1]); */
 
 out:
 	if (found_lines != recovered_lines)

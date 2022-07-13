@@ -81,8 +81,8 @@ static blk_qc_t pblk_submit_bio(struct bio *bio)
 		/*printk(KERN_INFO
 		       "process_id:%d bio_process_id:%u file inode id:%lu\n",
 		       task_pid_nr(current), bio->proc_id, bio->i_ino);*/
-    pblk->data_amount += pblk_get_secs(bio);
-    printk(KERN_INFO "rq_amount:%llu \n", pblk->data_amount);
+    // pblk->data_amount += pblk_get_secs(bio);
+    // printk(KERN_INFO "rq_amount:%llu \n", pblk->data_amount);
 #endif
 
 		if (pblk_get_secs(bio) > pblk_rl_max_io(&pblk->rl))
@@ -129,6 +129,8 @@ static void pblk_l2p_free(struct pblk *pblk)
 static int pblk_l2p_recover(struct pblk *pblk, bool factory_init)
 {
 	struct pblk_line *line = NULL;
+
+    printk(KERN_INFO "factory_init : %d %s", factory_init, factory_init ? "true" : "false");
 
 	if (factory_init) {
 		guid_gen(&pblk->instance_uuid);

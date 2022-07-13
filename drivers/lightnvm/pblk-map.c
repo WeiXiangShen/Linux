@@ -36,10 +36,12 @@ static int pblk_map_page_data(struct pblk *pblk, unsigned int sentry,
 #ifdef CONFIG_NVM_PBLK_Q_LEARNING
     // struct pblk_q_learning *q_learn = &pblk->q_learn;
 #endif
+    // printk(KERN_INFO "pblk_map_page_data start\n");
 
 	if (!line)
 		return -ENOSPC;
 
+    // printk(KERN_INFO "line check completed\n");
 	if (pblk_line_is_full(line)) {
 		struct pblk_line *prev_line = line;
 
@@ -55,6 +57,7 @@ static int pblk_map_page_data(struct pblk *pblk, unsigned int sentry,
 		}
 
 	}
+    // printk(KERN_INFO "line full check completed\n");
 
 	emeta = line->emeta;
 	lba_list = emeta_to_lbas(pblk, emeta->buf);

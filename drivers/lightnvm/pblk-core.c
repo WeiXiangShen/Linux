@@ -1337,7 +1337,7 @@ static struct pblk_line *pblk_line_retry(struct pblk *pblk,
 	struct pblk_line_mgmt *l_mg = &pblk->l_mg;
 	struct pblk_line *retry_line;
     int *DLI = &l_mg->DLI;
-    
+
 retry:
 	spin_lock(&l_mg->free_lock);
 	retry_line = pblk_line_get(pblk);
@@ -1377,6 +1377,8 @@ struct pblk_line *pblk_line_get_first_data(struct pblk *pblk)
 {
 	struct pblk_line_mgmt *l_mg = &pblk->l_mg;
 	struct pblk_line *line;
+    struct pblk_line *new;
+    unsigned int left_seblks;
     int *DLI = &l_mg->DLI;
 
 	spin_lock(&l_mg->free_lock);
@@ -1436,6 +1438,61 @@ retry_setup:
 
 	pblk_rl_free_lines_dec(&pblk->rl, line, true);
 
+    spin_lock(&l_mg->free_lock);
+    l_mg->data_line[1] = pblk_line_get(pblk);
+	if (!l_mg->data_line[1]) {
+		/* If we cannot get a new line, we need to stop the pipeline.
+		 * Only allow as many writes in as we can store safely and then
+		 * fail gracefully
+		 */
+		pblk_set_space_limit(pblk);
+
+		l_mg->data_line[1] = NULL;
+	} else {
+		l_mg->data_line[1]->seq_nr = l_mg->d_seq_nr++;
+		l_mg->data_line[1]->type = PBLK_LINETYPE_DATA;
+	}
+    printk(KERN_INFO "pblk_line_get_first_data-data_line[1]_alloc : %p\n", l_mg->data_line[1]);
+
+    new = l_mg->data_line[1];
+    pblk_line_setup_metadata(new, l_mg, &pblk->lm);
+    spin_unlock(&l_mg->free_lock);
+
+retry_erase:
+	left_seblks = atomic_read(&new->left_seblks);
+	if (left_seblks) {
+		/* If line is not fully erased, erase it */
+		if (atomic_read(&new->left_eblks)) {
+			if (pblk_line_erase(pblk, new))
+				goto out;
+		} else {
+			io_schedule();
+		}
+		goto retry_erase;
+	}
+
+	if (pblk_line_alloc_bitmaps(pblk, new))
+		return NULL;
+
+retry_setup_2:
+	if (!pblk_line_init_metadata(pblk, new, NULL)) {
+		new = pblk_line_retry(pblk, new);
+		if (!new)
+			goto out;
+
+		goto retry_setup_2;
+	}
+
+	if (!pblk_line_init_bb(pblk, new, 1)) {
+		new = pblk_line_retry(pblk, new);
+		if (!new)
+			goto out;
+
+		goto retry_setup_2;
+	}
+
+	pblk_rl_free_lines_dec(&pblk->rl, new, true);
+out:
 	return line;
 }
 
@@ -1559,12 +1616,16 @@ struct pblk_line *pblk_line_replace_data(struct pblk *pblk)
 	if (!new)
 		goto out;
 
+    printk(KERN_INFO "pblk_line_replace_data-Setup_metadata : start\n");
+
 	spin_lock(&l_mg->free_lock);
 	cur = l_mg->data_line[*DLI];
 	l_mg->data_line[*DLI] = new;
 
 	pblk_line_setup_metadata(new, l_mg, &pblk->lm);
 	spin_unlock(&l_mg->free_lock);
+
+    printk(KERN_INFO "pblk_line_replace_data-Setup_metadata : end\n");
 
 retry_erase:
 	left_seblks = atomic_read(&new->left_seblks);
@@ -1581,7 +1642,9 @@ retry_erase:
 
 	if (pblk_line_alloc_bitmaps(pblk, new))
 		return NULL;
-
+    
+    printk(KERN_INFO "pblk_line_replace_data-retry_erase : end\n");
+    printk(KERN_INFO "pblk_line_replace_data : pblk:%p new:%p cur%p : end\n", pblk, new, cur);
 retry_setup:
 	if (!pblk_line_init_metadata(pblk, new, cur)) {
 		new = pblk_line_retry(pblk, new);
@@ -1598,6 +1661,8 @@ retry_setup:
 
 		goto retry_setup;
 	}
+
+    printk(KERN_INFO "pblk_line_replace_data-retry_setup : end\n");
 
 	pblk_rl_free_lines_dec(&pblk->rl, new, true);
 

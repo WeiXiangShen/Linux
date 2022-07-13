@@ -329,7 +329,7 @@ static int pblk_setup_w_rq(struct pblk *pblk, struct nvm_rq *rqd,
     q_learn->total_valid += valid;
     q_learn->total_padded += padded;
     q_learn->total_nr_secs += nr_secs;
-    printk(KERN_INFO "valid:%llu padded:%llu nr_secs:%llu\n", q_learn->total_valid, q_learn->total_padded, q_learn->total_nr_secs);
+    // printk(KERN_INFO "valid:%llu padded:%llu nr_secs:%llu\n", q_learn->total_valid, q_learn->total_padded, q_learn->total_nr_secs);
 #endif
 
 	lun_bitmap = kzalloc(lm->lun_bitmap_len, GFP_KERNEL);
@@ -337,12 +337,14 @@ static int pblk_setup_w_rq(struct pblk *pblk, struct nvm_rq *rqd,
 		return -ENOMEM;
 	c_ctx->lun_bitmap = lun_bitmap;
 
+    // printk(KERN_INFO "Before pblk_alloc_w_rq \n");
 	ret = pblk_alloc_w_rq(pblk, rqd, nr_secs, pblk_end_io_write);
 	if (ret) {
 		kfree(lun_bitmap);
 		return ret;
 	}
-
+    // printk(KERN_INFO "pblk_alloc_w_rq completed\n");
+    // printk(KERN_INFO "likely : %ld\n", likely(!e_line || !atomic_read(&e_line->left_eblks)));
 	if (likely(!e_line || !atomic_read(&e_line->left_eblks)))
 		ret = pblk_map_rq(pblk, rqd, c_ctx->sentry, lun_bitmap, valid,
 				  0);
@@ -568,6 +570,9 @@ static int pblk_submit_write(struct pblk *pblk, int *secs_left)
 	unsigned long pos;
 	unsigned int resubmit;
 
+    struct pblk_line_mgmt *l_mg = &pblk->l_mg;
+    int *DLI = &l_mg->DLI;
+
 	*secs_left = 0;
 
 	spin_lock(&pblk->resubmit_lock);
@@ -634,6 +639,9 @@ static int pblk_submit_write(struct pblk *pblk, int *secs_left)
 
 	if (pblk_submit_io_set(pblk, rqd))
 		goto fail_free_bio;
+
+    printk(KERN_INFO "data_line index:%d \n", *DLI);
+    *DLI = ((*DLI) + 1) % PBLK_OPEN_LINE;
 
 #ifdef CONFIG_NVM_PBLK_DEBUG
 	atomic_long_add(secs_to_sync, &pblk->sub_writes);
