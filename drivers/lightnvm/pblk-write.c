@@ -640,8 +640,10 @@ static int pblk_submit_write(struct pblk *pblk, int *secs_left)
 	if (pblk_submit_io_set(pblk, rqd))
 		goto fail_free_bio;
 
-    printk(KERN_INFO "data_line index:%d \n", *DLI);
+    spin_lock(&l_mg->free_lock);
+    // printk(KERN_INFO "data_line index:%d \n", *DLI);
     *DLI = ((*DLI) + 1) % PBLK_OPEN_LINE;
+    spin_unlock(&l_mg->free_lock);
 
 #ifdef CONFIG_NVM_PBLK_DEBUG
 	atomic_long_add(secs_to_sync, &pblk->sub_writes);

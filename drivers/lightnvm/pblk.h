@@ -162,7 +162,7 @@ struct pblk_w_ctx {
 #define PBLK_FILE_BUCKET 10 // Buckets for File ID
 #define PBLK_LBA_BUCKET 10 // Buckets for Logical Block Address
 #define PBLK_DATA_BUCKET 10 // Buckets for Data quantity */
-#define PBLK_OPEN_LINE  2   // How many lines we can choose
+#define PBLK_OPEN_LINE  4   // How many lines we can choose
 struct pblk_q_learning {
 	// unsigned int proc_id; /* process id for an entry */
 	// unsigned int ino_id; /* inode id to file on an entry */
@@ -519,7 +519,7 @@ struct pblk_line {
 	spinlock_t lock; /* Necessary for invalid_bitmap only */
 };
 
-#define PBLK_DATA_LINES 4
+#define PBLK_DATA_LINES 12
 
 enum { PBLK_EMETA_TYPE_HEADER = 1, /* struct line_emeta first sector */
        PBLK_EMETA_TYPE_LLBA = 2, /* lba list - type: __le64 */
@@ -839,6 +839,7 @@ int pblk_submit_meta_io(struct pblk *pblk, struct pblk_line *meta_line);
 void pblk_check_chunk_state_update(struct pblk *pblk, struct nvm_rq *rqd);
 struct pblk_line *pblk_line_get(struct pblk *pblk);
 struct pblk_line *pblk_line_get_first_data(struct pblk *pblk);
+void pblk_data_lines_init(struct pblk *pblk, struct pblk_line *new);
 struct pblk_line *pblk_line_replace_data(struct pblk *pblk);
 void pblk_ppa_to_line_put(struct pblk *pblk, struct ppa_addr ppa);
 void pblk_rq_to_line_put(struct pblk *pblk, struct nvm_rq *rqd);

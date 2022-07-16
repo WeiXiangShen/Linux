@@ -129,9 +129,9 @@ static void pblk_read_check_seq(struct pblk *pblk, struct nvm_rq *rqd,
 
 			print_ppa(pblk, &ppa_list[i], "seq", i);
 #endif
-			pblk_err(pblk, "corrupted read LBA (%llu/%llu)\n",
-							lba, (u64)blba + i);
-			WARN_ON(1);
+			/* pblk_err(pblk, "corrupted read LBA (%llu/%llu)\n",
+							lba, (u64)blba + i); */
+			// WARN_ON(1);
 		}
 	}
 }
@@ -165,9 +165,9 @@ static void pblk_read_check_rand(struct pblk *pblk, struct nvm_rq *rqd,
 
 			print_ppa(pblk, &ppa_list[j], "rnd", j);
 #endif
-			pblk_err(pblk, "corrupted read LBA (%llu/%llu)\n",
-							meta_lba, lba);
-			WARN_ON(1);
+			/* pblk_err(pblk, "corrupted read LBA (%llu/%llu)\n",
+							meta_lba, lba); */
+			// WARN_ON(1);
 		}
 
 		j++;

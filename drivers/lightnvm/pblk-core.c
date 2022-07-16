@@ -1378,8 +1378,9 @@ struct pblk_line *pblk_line_get_first_data(struct pblk *pblk)
 	struct pblk_line_mgmt *l_mg = &pblk->l_mg;
 	struct pblk_line *line;
     struct pblk_line *new;
-    unsigned int left_seblks;
+    // unsigned int left_seblks;
     int *DLI = &l_mg->DLI;
+    int i;
 
 	spin_lock(&l_mg->free_lock);
 	line = pblk_line_get(pblk);
@@ -1439,32 +1440,47 @@ retry_setup:
 	pblk_rl_free_lines_dec(&pblk->rl, line, true);
 
     spin_lock(&l_mg->free_lock);
-    l_mg->data_line[1] = pblk_line_get(pblk);
-	if (!l_mg->data_line[1]) {
-		/* If we cannot get a new line, we need to stop the pipeline.
-		 * Only allow as many writes in as we can store safely and then
-		 * fail gracefully
-		 */
-		pblk_set_space_limit(pblk);
+    // data_line[0] has already been initialized before
+    for (i = 1; i < PBLK_OPEN_LINE; i++) {
 
-		l_mg->data_line[1] = NULL;
-	} else {
-		l_mg->data_line[1]->seq_nr = l_mg->d_seq_nr++;
-		l_mg->data_line[1]->type = PBLK_LINETYPE_DATA;
-	}
-    printk(KERN_INFO "pblk_line_get_first_data-data_line[1]_alloc : %p\n", l_mg->data_line[1]);
+        l_mg->data_line[i] = pblk_line_get(pblk);
+        if (!l_mg->data_line[i]) {
+            /* If we cannot get a new line, we need to stop the pipeline.
+            * Only allow as many writes in as we can store safely and then
+            * fail gracefully
+            */
+            pblk_set_space_limit(pblk);
 
-    new = l_mg->data_line[1];
-    pblk_line_setup_metadata(new, l_mg, &pblk->lm);
+            l_mg->data_line[i] = NULL;
+        } else {
+            l_mg->data_line[i]->seq_nr = l_mg->d_seq_nr++;
+            l_mg->data_line[i]->type = PBLK_LINETYPE_DATA;
+        }
+        printk(KERN_INFO "pblk_line_get_first_data-data_line[%d]_alloc : %p\n", i, l_mg->data_line[i]);
+        new = l_mg->data_line[i];
+        pblk_line_setup_metadata(new, l_mg, &pblk->lm);
+    }
     spin_unlock(&l_mg->free_lock);
+
+    // data_line[0] has already been initialized before
+    for (i = 1; i < PBLK_OPEN_LINE; i++) {
+        new = l_mg->data_line[i];
+        pblk_data_lines_init(pblk, new);
+    }
+
+// out:
+	return line;
+}
+void pblk_data_lines_init(struct pblk *pblk, struct pblk_line *new){
+    unsigned int left_seblks;
 
 retry_erase:
 	left_seblks = atomic_read(&new->left_seblks);
 	if (left_seblks) {
-		/* If line is not fully erased, erase it */
+		// If line is not fully erased, erase it 
 		if (atomic_read(&new->left_eblks)) {
 			if (pblk_line_erase(pblk, new))
-				goto out;
+				return;
 		} else {
 			io_schedule();
 		}
@@ -1472,28 +1488,26 @@ retry_erase:
 	}
 
 	if (pblk_line_alloc_bitmaps(pblk, new))
-		return NULL;
+		return;
 
-retry_setup_2:
+retry_setup:
 	if (!pblk_line_init_metadata(pblk, new, NULL)) {
 		new = pblk_line_retry(pblk, new);
 		if (!new)
-			goto out;
+			return;
 
-		goto retry_setup_2;
+		goto retry_setup;
 	}
 
 	if (!pblk_line_init_bb(pblk, new, 1)) {
 		new = pblk_line_retry(pblk, new);
 		if (!new)
-			goto out;
+			return;
 
-		goto retry_setup_2;
+		goto retry_setup;
 	}
 
 	pblk_rl_free_lines_dec(&pblk->rl, new, true);
-out:
-	return line;
 }
 
 void pblk_ppa_to_line_put(struct pblk *pblk, struct ppa_addr ppa)
@@ -1830,6 +1844,8 @@ void pblk_line_close(struct pblk *pblk, struct pblk_line *line)
 	spin_lock(&l_mg->free_lock);
 	WARN_ON(!test_and_clear_bit(line->meta_line, &l_mg->meta_bitmap));
 	spin_unlock(&l_mg->free_lock);
+    
+    printk(KERN_INFO "pblk_line_close : meta_bitmap 0x%lX", l_mg->meta_bitmap);
 
 	spin_lock(&l_mg->gc_lock);
 	spin_lock(&line->lock);

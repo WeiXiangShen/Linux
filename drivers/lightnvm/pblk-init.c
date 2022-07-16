@@ -849,10 +849,14 @@ static int pblk_line_mg_init(struct pblk *pblk)
 	l_mg->nr_lines = geo->num_chk;
 	l_mg->data_line = kcalloc( PBLK_OPEN_LINE , sizeof(struct pblk_line*), GFP_KERNEL );
     *DLI = 0;
-    l_mg->log_line = l_mg->data_line[*DLI] = NULL;
+    l_mg->log_line = NULL;
+    /* l_mg->data_line[*DLI] = NULL;
     *DLI = 1;
     l_mg->data_line[*DLI] = NULL;
-    *DLI = 0;
+    *DLI = 0; */
+    for (i = 0; i < PBLK_OPEN_LINE; i++) {
+        l_mg->data_line[i] = NULL;
+	}
 	l_mg->l_seq_nr = l_mg->d_seq_nr = 0;
 	l_mg->nr_free_lines = 0;
 	bitmap_zero(&l_mg->meta_bitmap, PBLK_DATA_LINES);
@@ -1188,6 +1192,7 @@ static int pblk_q_learning_init(struct pblk *pblk)
     printk(KERN_INFO "PBLK_LBA_BUCKET : %d\n",PBLK_LBA_BUCKET);
     printk(KERN_INFO "PBLK_DATA_BUCKET : %d\n",PBLK_DATA_BUCKET);
     printk(KERN_INFO "PBLK_OPEN_LINE : %d\n",PBLK_OPEN_LINE);
+    printk(KERN_INFO "PBLK_DATA_LINES(meta_line) : %d\n",PBLK_DATA_LINES);
 
     // q_learn->q_table = kvzalloc( PBLK_PROCESS_BUCKET * PBLK_FILE_BUCKET * PBLK_LBA_BUCKET * PBLK_DATA_BUCKET * PBLK_OPEN_LINE * sizeof(int) , GFP_KERNEL );
     q_learn->q_table = kvzalloc( 1 * PBLK_OPEN_LINE * sizeof(int) , GFP_KERNEL );
