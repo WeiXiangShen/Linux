@@ -800,6 +800,7 @@ EXPORT_SYMBOL(nvm_submit_io_sync);
 void nvm_end_io(struct nvm_rq *rqd)
 {
 	struct nvm_tgt_dev *tgt_dev = rqd->dev;
+    printk(KERN_INFO "nvm_end_io-rqd->end_io: %p\n", rqd->end_io);
 
 	/* Convert address space */
 	if (tgt_dev)

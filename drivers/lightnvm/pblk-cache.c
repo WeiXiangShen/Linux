@@ -17,7 +17,10 @@
  */
 
 #include "pblk.h"
+#ifdef CONFIG_NVM_PBLK_Q_LEARNING
 #include <linux/sched.h>
+#include <linux/random.h>
+#endif
 
 void pblk_write_to_cache(struct pblk *pblk, struct bio *bio,
 			 unsigned long flags)
@@ -28,6 +31,10 @@ void pblk_write_to_cache(struct pblk *pblk, struct bio *bio,
 	unsigned int bpos, pos;
 	int nr_entries = pblk_get_secs(bio);
 	int i, ret;
+    struct pblk_line_mgmt *l_mg = &pblk->l_mg;
+    unsigned long rq_nr = (*l_mg->rq_nr)++;
+
+    // printk(KERN_INFO "l_mg->rq_nr:%lu rq_nr:%lu\n", *l_mg->rq_nr, rq_nr);
 
 	start_time = bio_start_io_acct(bio);
 	// add by Vynax
@@ -82,6 +89,11 @@ retry:
             w_ctx.rq_finish = true;
         else
             w_ctx.rq_finish = false;
+        w_ctx.rq_nr = rq_nr;
+        get_random_bytes(&w_ctx.nr_line, sizeof w_ctx.nr_line);
+        w_ctx.nr_line = w_ctx.nr_line & (PBLK_OPEN_LINE - 1);
+        // printk(KERN_INFO "pblk_write_to_cache w_ctx.rq_nr:%lu rq_nr:%lu\n", *l_mg->rq_nr, rq_nr);
+        // printk(KERN_INFO "pblk_write_to_cache w_ctx.nr_line: %u\n", w_ctx.nr_line);
 #endif
 
 		pos = pblk_rb_wrap_pos(&pblk->rwb, bpos + i);

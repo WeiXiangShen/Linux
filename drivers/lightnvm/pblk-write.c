@@ -266,6 +266,8 @@ static void pblk_end_io_write(struct nvm_rq *rqd)
 
 	pblk_complete_write(pblk, rqd, c_ctx);
 	atomic_dec(&pblk->inflight_io);
+    
+    // printk(KERN_INFO "pblk_end_io_write: completed\n");
 }
 
 static void pblk_end_io_write_meta(struct nvm_rq *rqd)
@@ -330,6 +332,7 @@ static int pblk_setup_w_rq(struct pblk *pblk, struct nvm_rq *rqd,
     q_learn->total_padded += padded;
     q_learn->total_nr_secs += nr_secs;
     // printk(KERN_INFO "valid:%llu padded:%llu nr_secs:%llu\n", q_learn->total_valid, q_learn->total_padded, q_learn->total_nr_secs);
+    printk(KERN_INFO "pblk_setup_w_rq-valid: %u padded: %u nr_secs: %u\n", valid, padded, nr_secs);
 #endif
 
 	lun_bitmap = kzalloc(lm->lun_bitmap_len, GFP_KERNEL);
@@ -515,7 +518,11 @@ static int pblk_submit_io_set(struct pblk *pblk, struct nvm_rq *rqd)
 		return NVM_IO_ERR;
 	}
 
+    printk(KERN_INFO "pblk_submit_io_set-pblk_setup_w_rq: completed\n");
+
 	meta_line = pblk_should_submit_meta_io(pblk, rqd);
+
+    printk(KERN_INFO "pblk_submit_io_set-pblk_should_submit_meta_io: completed\n");
 
 	/* Submit data write for current data line */
 	err = pblk_submit_io(pblk, rqd, NULL);
@@ -538,6 +545,9 @@ static int pblk_submit_io_set(struct pblk *pblk, struct nvm_rq *rqd)
 		}
 	}
 
+    printk(KERN_INFO "pblk_submit_io_set-pblk_submit_io: completed\n");
+
+    printk(KERN_INFO "pblk_submit_io_set-meta_line: %p\n", meta_line);
 	if (meta_line) {
 		/* Submit metadata write for previous data line */
 		err = pblk_submit_meta_io(pblk, meta_line);
@@ -569,6 +579,9 @@ static int pblk_submit_write(struct pblk *pblk, int *secs_left)
 	unsigned int secs_to_flush, packed_meta_pgs;
 	unsigned long pos;
 	unsigned int resubmit;
+    // unsigned int secs_div;
+    // int secs_temp1, secs_temp2, secs_temp3;
+    // int i;
 
     struct pblk_line_mgmt *l_mg = &pblk->l_mg;
     int *DLI = &l_mg->DLI;
@@ -623,27 +636,53 @@ static int pblk_submit_write(struct pblk *pblk, int *secs_left)
 	}
 
 	packed_meta_pgs = (pblk->min_write_pgs - pblk->min_write_pgs_data);
-	bio = bio_alloc(GFP_KERNEL, secs_to_sync + packed_meta_pgs);
 
-	bio->bi_iter.bi_sector = 0; /* internal bio */
-	bio_set_op_attrs(bio, REQ_OP_WRITE, 0);
+    // if (PBLK_OPEN_LINE != 1){
+    //     secs_temp1 = secs_to_sync;
+    //     secs_temp2 = secs_temp1 / 2;
+    //     secs_temp3 = secs_temp1 - secs_temp2;
 
-	rqd = pblk_alloc_rqd(pblk, PBLK_WRITE);
-	rqd->bio = bio;
+    //     secs_to_sync = secs_temp2;
+    // }
+    // for ( i=0;i< 2;i++){ //i<PBLK_OPEN_LINE
+    //     if ( i== PBLK_OPEN_LINE-1 && PBLK_OPEN_LINE != 1){
+    //         secs_to_sync = secs_temp3;
+    //     }
 
-	if (pblk_rb_read_to_bio(&pblk->rwb, rqd, pos, secs_to_sync,
-				secs_avail)) {
-		pblk_err(pblk, "corrupted write bio\n");
-		goto fail_put_bio;
-	}
+	    bio = bio_alloc(GFP_KERNEL, secs_to_sync + packed_meta_pgs);
+        bio->bi_iter.bi_sector = 0; /* internal bio */
+        bio_set_op_attrs(bio, REQ_OP_WRITE, 0);
 
-	if (pblk_submit_io_set(pblk, rqd))
-		goto fail_free_bio;
+        rqd = pblk_alloc_rqd(pblk, PBLK_WRITE);
+        rqd->bio = bio;
 
-    spin_lock(&l_mg->free_lock);
-    // printk(KERN_INFO "data_line index:%d \n", *DLI);
-    *DLI = ((*DLI) + 1) % PBLK_OPEN_LINE;
-    spin_unlock(&l_mg->free_lock);
+        if (pblk_rb_read_to_bio(&pblk->rwb, rqd, pos, secs_to_sync,
+                    secs_avail)) {
+            pblk_err(pblk, "corrupted write bio\n");
+            goto fail_put_bio;
+        }
+
+        // spin_lock(&l_mg->wr_rq_lock);
+
+        if (pblk_submit_io_set(pblk, rqd))
+            goto fail_free_bio;
+
+        // spin_unlock(&l_mg->wr_rq_lock);
+
+        // spin_lock(&l_mg->free_lock);
+        // *DLI = ((*DLI) + 1) % PBLK_OPEN_LINE;
+        // printk(KERN_INFO "data_line index:%d \n", *DLI);
+        // spin_unlock(&l_mg->free_lock);
+
+        // printk(KERN_INFO "pblk_submit_write-request: %d pos: %lu secs_to_sync: %u\n", i, pos, secs_to_sync);
+        // if ( i!= 2 ){ //PBLK_OPEN_LINE-1
+        //     pos = pblk_rb_ptr_wrap(&pblk->rwb, pos, secs_to_sync);
+        // }
+
+    // }
+
+
+
 
 #ifdef CONFIG_NVM_PBLK_DEBUG
 	atomic_long_add(secs_to_sync, &pblk->sub_writes);

@@ -25,41 +25,170 @@ static int pblk_map_page_data(struct pblk *pblk, unsigned int sentry,
 			      void *meta_list,
 			      unsigned int valid_secs)
 {
-	struct pblk_line *line = pblk_line_get_data(pblk);
+	struct pblk_line *line[PBLK_OPEN_LINE];
+    // line[0] = pblk_line_get_data(pblk);
+	struct pblk_emeta *emeta[PBLK_OPEN_LINE];
+	struct pblk_w_ctx *w_ctx;
+	__le64 *lba_list[PBLK_OPEN_LINE];
+	u64 paddr[PBLK_OPEN_LINE];
+	int nr_secs = pblk->min_write_pgs;
+	int i;
+    // add by Vynax
+#ifdef CONFIG_NVM_PBLK_Q_LEARNING
+    // struct pblk_q_learning *q_learn = &pblk->q_learn;
+    int nr_line[PBLK_OPEN_LINE];
+    int count_line[PBLK_OPEN_LINE]; // count how many entry has been allocated to this line
+    int w_l; // which line in entry
+    int blank_secs_each_line = (nr_secs - valid_secs) / PBLK_OPEN_LINE; // (nr_secs - valid_secs) / PBLK_OPEN_LINE
+    int blank_secs_else = (nr_secs - valid_secs) % PBLK_OPEN_LINE; // (nr_secs - valid_secs) % PBLK_OPEN_LINE
+    int BENL = 0; //blank entry now line;
+    memset(nr_line, 0, sizeof(nr_line));
+    for (i = 0; i < nr_secs; i++) {
+        if (i < valid_secs) {
+            w_ctx = pblk_rb_w_ctx(&pblk->rwb, sentry + i);
+            nr_line[w_ctx->nr_line]++;
+        }
+    }
+
+    for (i = 0; i < PBLK_OPEN_LINE; i++) {
+        nr_line[i]+= blank_secs_each_line;
+        if ( blank_secs_else != 0 ){
+            nr_line[i] ++;
+            blank_secs_else --;
+        }
+    }
+    // nr_line[0] += valid_secs;
+    // printk(KERN_INFO "nr_line[0]:%d [1]:%d [2]:%d [3]:%d valid_secs:%u\n", nr_line[0], nr_line[1], nr_line[2], nr_line[3], valid_secs);
+    printk(KERN_INFO "nr_line[0]: %d [1]:%d valid_secs:%u\n", nr_line[0], nr_line[1], valid_secs);
+    // printk(KERN_INFO "nr_line[0]: %d valid_secs:%u nr_secs:%d\n", nr_line[0], valid_secs, nr_secs);
+#endif
+    // printk(KERN_INFO "pblk_map_page_data start\n");
+
+    for ( i=0;i< PBLK_OPEN_LINE; i++){
+        line[i] = pblk->l_mg.data_line[i];
+        if (!line[i])
+            return -ENOSPC;
+
+        // printk(KERN_INFO "line check completed\n");
+        if (pblk_line_is_full(line[i])) {
+            struct pblk_line *prev_line = line[i];
+
+            /* If we cannot allocate a new line, make sure to store metadata
+            * on current line and then fail
+            */
+            line[i] = pblk_line_replace_data(pblk);
+            pblk_line_close_meta(pblk, prev_line);
+
+            if (!line[i]) {
+                pblk_pipeline_stop(pblk);
+                return -ENOSPC;
+            }
+
+        }
+    }
+
+    // line[0] = pblk_line_get_data(pblk);
+
+    // printk(KERN_INFO "line full check completed\n");
+
+	emeta[0] = line[0]->emeta;
+	lba_list[0] = emeta_to_lbas(pblk, emeta[0]->buf);
+
+	paddr[0] = pblk_alloc_page(pblk, line[0], nr_line[0]);
+
+    emeta[1] = line[1]->emeta;
+	lba_list[1] = emeta_to_lbas(pblk, emeta[1]->buf);
+
+	paddr[1] = pblk_alloc_page(pblk, line[1], nr_line[1]);
+
+	for (i = 0; i < valid_secs; i++) {
+		struct pblk_sec_meta *meta = pblk_get_meta(pblk, meta_list, i);
+		__le64 addr_empty = cpu_to_le64(ADDR_EMPTY);
+
+        w_ctx = pblk_rb_w_ctx(&pblk->rwb, sentry + i);
+        w_l = w_ctx->nr_line;
+
+		/* ppa to be sent to the device */
+		ppa_list[i] = addr_to_gen_ppa(pblk, paddr[w_l], line[w_l]->id);
+
+		/* Write context for target bio completion on write buffer. Note
+		 * that the write buffer is protected by the sync backpointer,
+		 * and a single writer thread have access to each specific entry
+		 * at a time. Thus, it is safe to modify the context for the
+		 * entry we are setting up for submission without taking any
+		 * lock or memory barrier.
+		 */
+		if (i < valid_secs) {
+			kref_get(&line[w_l]->ref);
+			atomic_inc(&line[w_l]->sec_to_update);
+			// w_ctx = pblk_rb_w_ctx(&pblk->rwb, sentry + i);
+			w_ctx->ppa = ppa_list[i];
+			meta->lba = cpu_to_le64(w_ctx->lba);
+			lba_list[w_l][paddr[w_l]] = cpu_to_le64(w_ctx->lba);
+			if (lba_list[w_l][paddr[w_l]] != addr_empty)
+				line[w_l]->nr_valid_lbas++;
+			else
+				atomic64_inc(&pblk->pad_wa);
+		} 
+        /* else {
+			lba_list[0][paddr[0]] = addr_empty;
+			meta->lba = addr_empty;
+			__pblk_map_invalidate(pblk, line[0], paddr[0]);
+		} */
+
+        // add by Vynax
+#ifdef CONFIG_NVM_PBLK_Q_LEARNING
+        if ( i< 4 )
+        {
+            // int pblk_lba_bucket_upper_limit = PBLK_LBA_BUCKET - 1;
+            // q_learn->q_table[ i * i * i * i * i ]++;
+            // printk(KERN_INFO "q_table[%d][%d][%d][%d][%d]:%u\n", i, i, i, i, i, q_learn->q_table[ i * i * i * i * i ]);
+        }
+        // printk(KERN_INFO "w_ctx : nr_line %u", w_ctx->nr_line);
+        paddr[w_l]++;
+#endif
+
+	}
+
+    for (i = valid_secs; i < nr_secs; i++ ) {
+		struct pblk_sec_meta *meta = pblk_get_meta(pblk, meta_list, i);
+		__le64 addr_empty = cpu_to_le64(ADDR_EMPTY);
+
+        // w_ctx = pblk_rb_w_ctx(&pblk->rwb, sentry + i);
+        // w_l = w_ctx->nr_line;
+
+		// ppa to be sent to the device
+		ppa_list[i] = addr_to_gen_ppa(pblk, paddr[BENL], line[BENL]->id);
+        lba_list[BENL][paddr[BENL]] = addr_empty;
+		meta->lba = addr_empty;
+		__pblk_map_invalidate(pblk, line[BENL], paddr[BENL]);
+
+        paddr[BENL]++;
+        BENL = (BENL + 1) % PBLK_OPEN_LINE;
+
+        printk(KERN_INFO "blank entry WTF oh Yeah!\n");
+    }
+    
+    // my_pblk_map_invalidate(pblk, line);
+
+	pblk_down_rq(pblk, ppa_list[0], lun_bitmap);
+	return 0;
+}
+
+static int pblk_map_page_data_alloc(struct pblk *pblk, unsigned int sentry,
+			      struct ppa_addr *ppa_list,
+			      unsigned long *lun_bitmap,
+			      void *meta_list,
+			      unsigned int valid_secs){
+    struct pblk_line *line = pblk_line_get_data(pblk);
 	struct pblk_emeta *emeta;
 	struct pblk_w_ctx *w_ctx;
 	__le64 *lba_list;
 	u64 paddr;
 	int nr_secs = pblk->min_write_pgs;
 	int i;
-    // add by Vynax
-#ifdef CONFIG_NVM_PBLK_Q_LEARNING
-    // struct pblk_q_learning *q_learn = &pblk->q_learn;
-#endif
-    // printk(KERN_INFO "pblk_map_page_data start\n");
 
-	if (!line)
-		return -ENOSPC;
-
-    // printk(KERN_INFO "line check completed\n");
-	if (pblk_line_is_full(line)) {
-		struct pblk_line *prev_line = line;
-
-		/* If we cannot allocate a new line, make sure to store metadata
-		 * on current line and then fail
-		 */
-		line = pblk_line_replace_data(pblk);
-		pblk_line_close_meta(pblk, prev_line);
-
-		if (!line) {
-			pblk_pipeline_stop(pblk);
-			return -ENOSPC;
-		}
-
-	}
-    // printk(KERN_INFO "line full check completed\n");
-
-	emeta = line->emeta;
+    emeta = line->emeta;
 	lba_list = emeta_to_lbas(pblk, emeta->buf);
 
 	paddr = pblk_alloc_page(pblk, line, nr_secs);
@@ -94,21 +223,37 @@ static int pblk_map_page_data(struct pblk *pblk, unsigned int sentry,
 			meta->lba = addr_empty;
 			__pblk_map_invalidate(pblk, line, paddr);
 		}
+    }
 
-        // add by Vynax
-#ifdef CONFIG_NVM_PBLK_Q_LEARNING
-        if ( i< 4 )
-        {
-            // int pblk_lba_bucket_upper_limit = PBLK_LBA_BUCKET - 1;
-            // q_learn->q_table[ i * i * i * i * i ]++;
-            // printk(KERN_INFO "q_table[%d][%d][%d][%d][%d]:%u\n", i, i, i, i, i, q_learn->q_table[ i * i * i * i * i ]);
+    return 0;
+}
+
+static int pblk_map_page_data_check(struct pblk *pblk){
+    struct pblk_line_mgmt *l_mg = &pblk->l_mg;
+    struct pblk_line *line;
+    int i;
+    for (i = 1; i < PBLK_OPEN_LINE; i++) {
+        line = l_mg->data_line[i];
+        if (!line)
+		    return -ENOSPC;
+
+        // printk(KERN_INFO "line check completed\n");
+        if (pblk_line_is_full(line)) {
+            struct pblk_line *prev_line = line;
+
+            /* If we cannot allocate a new line, make sure to store metadata
+            * on current line and then fail
+            */
+            line = pblk_line_replace_data(pblk);
+            pblk_line_close_meta(pblk, prev_line);
+
+            if (!line) {
+                pblk_pipeline_stop(pblk);
+                return -ENOSPC;
+            }
+
         }
-#endif
-
-	}
-
-	pblk_down_rq(pblk, ppa_list[0], lun_bitmap);
-	return 0;
+    }
 }
 
 int pblk_map_rq(struct pblk *pblk, struct nvm_rq *rqd, unsigned int sentry,

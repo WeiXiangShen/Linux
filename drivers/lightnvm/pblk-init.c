@@ -415,6 +415,7 @@ static int pblk_core_init(struct pblk *pblk)
 	pblk_set_sec_per_write(pblk, pblk->min_write_pgs);
 
 	pblk->oob_meta_size = geo->sos;
+    printk(KERN_INFO "pblk_core_init-oob_meta_supported: %s", pblk_is_oob_meta_supported(pblk) ?"true":"false");
 	if (!pblk_is_oob_meta_supported(pblk)) {
 		/* For drives which does not have OOB metadata feature
 		 * in order to support recovery feature we need to use
@@ -505,6 +506,8 @@ static int pblk_core_init(struct pblk *pblk)
 
 	INIT_LIST_HEAD(&pblk->compl_list);
 	INIT_LIST_HEAD(&pblk->resubmit_list);
+
+    printk(KERN_INFO "pblk->min_write_pgs: %d min_write_pgs_data: %d max_write_pgs: %d\n", pblk->min_write_pgs, pblk->min_write_pgs_data, pblk->max_write_pgs);
 
 	return 0;
 
@@ -621,6 +624,9 @@ static int pblk_luns_init(struct pblk *pblk)
 
 	pblk->luns =
 		kcalloc(geo->all_luns, sizeof(struct pblk_lun), GFP_KERNEL);
+
+    printk(KERN_INFO "pblk_luns_init-pblk->luns: %d\n", geo->all_luns);
+
 	if (!pblk->luns)
 		return -ENOMEM;
 
@@ -839,6 +845,7 @@ free_blk_bitmap:
 
 static int pblk_line_mg_init(struct pblk *pblk)
 {
+    
 	struct nvm_tgt_dev *dev = pblk->dev;
 	struct nvm_geo *geo = &dev->geo;
 	struct pblk_line_mgmt *l_mg = &pblk->l_mg;
@@ -850,6 +857,7 @@ static int pblk_line_mg_init(struct pblk *pblk)
 	l_mg->data_line = kcalloc( PBLK_OPEN_LINE , sizeof(struct pblk_line*), GFP_KERNEL );
     *DLI = 0;
     l_mg->log_line = NULL;
+    l_mg->rq_nr = kmalloc( sizeof(unsigned long), GFP_KERNEL );
     /* l_mg->data_line[*DLI] = NULL;
     *DLI = 1;
     l_mg->data_line[*DLI] = NULL;
@@ -881,6 +889,8 @@ static int pblk_line_mg_init(struct pblk *pblk)
 	spin_lock_init(&l_mg->free_lock);
 	spin_lock_init(&l_mg->close_lock);
 	spin_lock_init(&l_mg->gc_lock);
+
+    spin_lock_init(&l_mg->wr_rq_lock);
 
 	l_mg->vsc_list = kcalloc(l_mg->nr_lines, sizeof(__le32), GFP_KERNEL);
 	if (!l_mg->vsc_list)

@@ -145,6 +145,8 @@ struct pblk_w_ctx {
 	unsigned long ino_id; /* inode id to file on this entry */
     unsigned int  rq_size;
     bool rq_finish;
+    unsigned int nr_line; // which line should be used to handle this w_ctx
+    unsigned long rq_nr;  /* request unique sequence number */
 #endif
 };
 
@@ -162,7 +164,7 @@ struct pblk_w_ctx {
 #define PBLK_FILE_BUCKET 10 // Buckets for File ID
 #define PBLK_LBA_BUCKET 10 // Buckets for Logical Block Address
 #define PBLK_DATA_BUCKET 10 // Buckets for Data quantity */
-#define PBLK_OPEN_LINE  4   // How many lines we can choose
+#define PBLK_OPEN_LINE  2  // How many lines we can choose
 struct pblk_q_learning {
 	// unsigned int proc_id; /* process id for an entry */
 	// unsigned int ino_id; /* inode id to file on an entry */
@@ -553,6 +555,8 @@ struct pblk_line_mgmt {
 
 #ifdef CONFIG_NVM_PBLK_Q_LEARNING
     int DLI; // data_line index 0~3
+    unsigned long *rq_nr; /* request unique sequence number */
+    spinlock_t wr_rq_lock; // write request lock
 #endif
 
 	struct list_head emeta_list; /* Lines queued to schedule emeta */
@@ -885,6 +889,7 @@ void pblk_bio_free_pages(struct pblk *pblk, struct bio *bio, int off,
 void pblk_map_invalidate(struct pblk *pblk, struct ppa_addr ppa);
 void __pblk_map_invalidate(struct pblk *pblk, struct pblk_line *line,
 			   u64 paddr);
+void my_pblk_map_invalidate(struct pblk *pblk, struct pblk_line *line);
 void pblk_update_map(struct pblk *pblk, sector_t lba, struct ppa_addr ppa);
 void pblk_update_map_cache(struct pblk *pblk, sector_t lba,
 			   struct ppa_addr ppa);

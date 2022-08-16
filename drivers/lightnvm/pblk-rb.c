@@ -23,6 +23,7 @@
 
 #ifdef CONFIG_NVM_PBLK_Q_LEARNING
 #include <linux/sched.h>
+#include <linux/random.h>
 #endif
 
 static DECLARE_RWSEM(pblk_rb_lock);
@@ -342,6 +343,8 @@ static void __pblk_rb_write_entry(struct pblk_rb *rb, void *data,
     entry->w_ctx.proc_id = task_pid_nr(current);
     entry->w_ctx.rq_size = w_ctx.rq_size;
     entry->w_ctx.rq_finish = w_ctx.rq_finish;
+    entry->w_ctx.rq_nr = w_ctx.rq_nr;
+    entry->w_ctx.nr_line = w_ctx.nr_line;
 #endif
 }
 
@@ -571,6 +574,8 @@ unsigned int pblk_rb_read_to_bio(struct pblk_rb *rb, struct nvm_rq *rqd,
 	unsigned int pad = 0, to_read = nr_entries;
 	unsigned int i;
 	int flags;
+    unsigned long rq_nr = 0;
+    int rq_nr_change = 0; // record how many times rq_nr change
 
 	if (count < nr_entries) {
 		pad = nr_entries - count;
@@ -602,6 +607,19 @@ try:
 		/* printk(KERN_INFO "in_proc_id:%u file id:%lu lba:%llu rq_size:%u rq_finish:%s\n",
 		       entry->w_ctx.proc_id, entry->w_ctx.ino_id, entry->w_ctx.lba, entry->w_ctx.rq_size,
                entry->w_ctx.rq_finish ? "true" : "false"); */
+        /* get_random_bytes(&entry->w_ctx.nr_line, sizeof entry->w_ctx.nr_line);
+        entry->w_ctx.nr_line = entry->w_ctx.nr_line & (PBLK_OPEN_LINE - 1); */
+        if ( i == 0 ){
+            rq_nr = entry->w_ctx.rq_nr;
+            printk(KERN_INFO "pblk_rb_read_to_bio-w_ctx.rq_nr:%lu rq_nr:%lu\n", entry->w_ctx.rq_nr, rq_nr);
+        }
+        else{
+            if ( rq_nr != entry->w_ctx.rq_nr ){
+                rq_nr = entry->w_ctx.rq_nr;
+                rq_nr_change++;
+            }
+        }
+
 #endif
 
 		page = virt_to_page(entry->data);
@@ -632,6 +650,8 @@ try:
 
 		pos = pblk_rb_ptr_wrap(rb, pos, 1);
 	}
+
+    printk(KERN_INFO "rq_nr change times:%d rq_nr:%lu to_read:%u\n", rq_nr_change, rq_nr, to_read);
 
 	if (pad) {
 		if (pblk_bio_add_pages(pblk, bio, GFP_KERNEL, pad)) {
