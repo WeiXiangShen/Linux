@@ -38,8 +38,8 @@ void pblk_write_to_cache(struct pblk *pblk, struct bio *bio,
 	// add by Vynax
 #ifdef CONFIG_NVM_PBLK_Q_LEARNING
 	// pblk->proc_id = bio->proc_id;
-	printk(KERN_INFO "bio process id:%u file inode id:%lu\n", task_pid_nr(current),
-	       bio->i_ino);
+	/* printk(KERN_INFO "bio process id:%u file inode id:%lu\n", task_pid_nr(current),
+	       bio->i_ino); */
 	/*printk(KERN_INFO "pblk process id:%u file inode id:%lu\n",
 	       pblk->proc_id, pblk->i_ino);*/
 #endif
