@@ -529,6 +529,10 @@ struct pblk_line_mgmt {
 
 	__le32 *vsc_list; /* Valid sector counts for all lines */
 
+#ifdef CONFIG_NVM_PBLK_Q_LEARNING
+    unsigned long gc_times;
+#endif
+
 	/* Pre-allocated metadata for data lines */
 	struct pblk_smeta *sline_meta[PBLK_DATA_LINES];
 	struct pblk_emeta *eline_meta[PBLK_DATA_LINES];
