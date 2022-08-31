@@ -342,6 +342,7 @@ static void __pblk_rb_write_entry(struct pblk_rb *rb, void *data,
     entry->w_ctx.proc_id = task_pid_nr(current);
     entry->w_ctx.rq_size = w_ctx.rq_size;
     entry->w_ctx.rq_finish = w_ctx.rq_finish;
+    entry->w_ctx.nr_line = w_ctx.nr_line;
 #endif
 }
 
@@ -571,6 +572,11 @@ unsigned int pblk_rb_read_to_bio(struct pblk_rb *rb, struct nvm_rq *rqd,
 	unsigned int pad = 0, to_read = nr_entries;
 	unsigned int i;
 	int flags;
+    int nr_line_total = 0;
+    int nr_line_final = 0;
+    int remainder = 0;
+    struct pblk_line_mgmt *l_mg = &pblk->l_mg;
+    int *DLI = &l_mg->DLI;
 
 	if (count < nr_entries) {
 		pad = nr_entries - count;
@@ -602,6 +608,7 @@ try:
 		/* printk(KERN_INFO "in_proc_id:%u file id:%lu lba:%llu rq_size:%u rq_finish:%s\n",
 		       entry->w_ctx.proc_id, entry->w_ctx.ino_id, entry->w_ctx.lba, entry->w_ctx.rq_size,
                entry->w_ctx.rq_finish ? "true" : "false"); */
+        nr_line_total += entry->w_ctx.nr_line;
 #endif
 
 		page = virt_to_page(entry->data);
@@ -633,6 +640,17 @@ try:
 		pos = pblk_rb_ptr_wrap(rb, pos, 1);
 	}
 
+    nr_line_final = nr_line_total / to_read;
+    remainder = nr_line_total % to_read;
+    if ( remainder > to_read / 2 ){
+        nr_line_final ++;
+    }
+
+    if ( nr_line_final > PBLK_OPEN_LINE - 1 ){
+        nr_line_final = PBLK_OPEN_LINE - 1;
+    }
+
+
 	if (pad) {
 		if (pblk_bio_add_pages(pblk, bio, GFP_KERNEL, pad)) {
 			pblk_err(pblk, "could not pad page in write bio\n");
@@ -647,6 +665,10 @@ try:
 		atomic64_add(pad, &pblk->pad_wa);
 	}
 
+    spin_lock(&l_mg->free_lock);
+    *DLI = nr_line_final;
+    // printk(KERN_INFO "pblk_rb_read_to_bio-nr_line_total: %d nr_line_final:%d DLI:%d\n", nr_line_total, nr_line_final, *DLI);
+    spin_unlock(&l_mg->free_lock);
 #ifdef CONFIG_NVM_PBLK_DEBUG
 	atomic_long_add(pad, &pblk->padded_writes);
 #endif

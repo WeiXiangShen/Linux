@@ -20,23 +20,71 @@
 #include <linux/sched.h>
 
 void pblk_write_to_cache(struct pblk *pblk, struct bio *bio,
-			 unsigned long flags)
+			 unsigned long flags, unsigned int rq_size)
 {
 	struct pblk_w_ctx w_ctx;
+    struct pblk_line_mgmt *l_mg = &pblk->l_mg;
+    long *rq_size_mean = l_mg->rq_size_mean;
+    int nr_line;
+
+    long mean_50 = *rq_size_mean / 2; // 50% average
+    long mean_150 = *rq_size_mean + mean_50; // 150% average
+    long s_rq_size = rq_size; // signed variable
+    int *rq_amount = l_mg->rq_amount;
+    unsigned int *org_rq_size_max = l_mg->org_rq_size_max;
 	sector_t lba = pblk_get_lba(bio);
 	unsigned long start_time;
 	unsigned int bpos, pos;
 	int nr_entries = pblk_get_secs(bio);
 	int i, ret;
+    // float offset;
 
 	start_time = bio_start_io_acct(bio);
 	// add by Vynax
 /* #ifdef CONFIG_NVM_PBLK_Q_LEARNING
 	pblk->i_ino = bio->i_ino;
 #endif */
+    // decide which line to allocate
+    s_rq_size = s_rq_size * PBLK_RQ_MEAN_AMOUNT_MAX * PBLK_RQ_MEAN_AMOUNT_MAX;
+    if ( s_rq_size > mean_150 ){
+        nr_line = 3;
+    }
+    else if ( s_rq_size > *rq_size_mean ){
+        nr_line = 2;
+    }
+    else if ( s_rq_size > mean_50 ){
+        nr_line = 1;
+    }
+    else{
+        nr_line = 0;
+    }
 
 	// add by Vynax
 #ifdef CONFIG_NVM_PBLK_Q_LEARNING
+    if ( *rq_amount < PBLK_RQ_MEAN_AMOUNT_MAX ){
+        (*rq_amount)++;
+    }
+    // kernel_fpu_begin();
+    // offset = bio->bi_iter.bi_size / (*rq_amount);
+    // *rq_size_mean += bio->bi_iter.bi_size / *rq_amount;
+    
+    // printk(KERN_INFO "offset: %f request amount: %d rq_size_mean:%f\n", offset, *rq_amount, *rq_size_mean);
+
+    // kernel_fpu_end();
+    *rq_size_mean = *rq_size_mean - *rq_size_mean / *rq_amount;
+    *rq_size_mean = *rq_size_mean + s_rq_size / *rq_amount;
+
+    // *rq_size_mean = s_rq_size_mean;
+
+    if ( rq_size > *org_rq_size_max ){
+        *org_rq_size_max = rq_size;
+    }
+
+
+    // printk(KERN_INFO "org_rq_size: %u org rq_size_mean: %lu rq_amount: %d nr_line:%d\n", rq_size, *rq_size_mean, *rq_amount, nr_line);
+    // printk(KERN_INFO "bi_size: %u org rq_size max: %u rq_size_max: %u\n", bio->bi_iter.bi_size, *org_rq_size_max, *rq_size_max);
+    // printk(KERN_INFO "bio->bi_iter.bi_size: %u request amount: %d rq_size_max: %u\n", bio->bi_iter.bi_size, *rq_amount, *rq_size_max);
+
 	// pblk->proc_id = bio->proc_id;
 	/* printk(KERN_INFO "bio process id:%u file inode id:%lu\n", task_pid_nr(current),
 	       bio->i_ino); */
@@ -82,6 +130,7 @@ retry:
             w_ctx.rq_finish = true;
         else
             w_ctx.rq_finish = false;
+        w_ctx.nr_line = nr_line;
 #endif
 
 		pos = pblk_rb_wrap_pos(&pblk->rwb, bpos + i);

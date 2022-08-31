@@ -54,6 +54,7 @@ struct bio_set pblk_bio_set;
 static blk_qc_t pblk_submit_bio(struct bio *bio)
 {
 	struct pblk *pblk = bio->bi_disk->queue->queuedata;
+    unsigned int rq_size = bio->bi_iter.bi_size;
 
 	if (bio_op(bio) == REQ_OP_DISCARD) {
 		pblk_discard(pblk, bio);
@@ -88,7 +89,7 @@ static blk_qc_t pblk_submit_bio(struct bio *bio)
 		if (pblk_get_secs(bio) > pblk_rl_max_io(&pblk->rl))
 			blk_queue_split(&bio);
 
-		pblk_write_to_cache(pblk, bio, PBLK_IOTYPE_USER);
+		pblk_write_to_cache(pblk, bio, PBLK_IOTYPE_USER, rq_size);
 	}
 
 	return BLK_QC_T_NONE;
@@ -850,6 +851,9 @@ static int pblk_line_mg_init(struct pblk *pblk)
 	l_mg->data_line = kcalloc( PBLK_OPEN_LINE , sizeof(struct pblk_line*), GFP_KERNEL );
     *DLI = 0;
     l_mg->log_line = NULL;
+    l_mg->rq_size_mean = kzalloc( sizeof(long), GFP_KERNEL );
+    l_mg->rq_amount = kzalloc( sizeof(int), GFP_KERNEL );
+    l_mg->org_rq_size_max = kzalloc( sizeof(unsigned int), GFP_KERNEL );
     /* l_mg->data_line[*DLI] = NULL;
     *DLI = 1;
     l_mg->data_line[*DLI] = NULL;

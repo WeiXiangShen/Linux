@@ -145,6 +145,7 @@ struct pblk_w_ctx {
 	unsigned long ino_id; /* inode id to file on this entry */
     unsigned int  rq_size;
     bool rq_finish;
+    int nr_line;
 #endif
 };
 
@@ -163,6 +164,7 @@ struct pblk_w_ctx {
 #define PBLK_LBA_BUCKET 10 // Buckets for Logical Block Address
 #define PBLK_DATA_BUCKET 10 // Buckets for Data quantity */
 #define PBLK_OPEN_LINE  4   // How many lines we can choose
+#define PBLK_RQ_MEAN_AMOUNT_MAX 10000 // request amount for average request size, max 10000
 struct pblk_q_learning {
 	// unsigned int proc_id; /* process id for an entry */
 	// unsigned int ino_id; /* inode id to file on an entry */
@@ -519,7 +521,7 @@ struct pblk_line {
 	spinlock_t lock; /* Necessary for invalid_bitmap only */
 };
 
-#define PBLK_DATA_LINES 12
+#define PBLK_DATA_LINES 16
 
 enum { PBLK_EMETA_TYPE_HEADER = 1, /* struct line_emeta first sector */
        PBLK_EMETA_TYPE_LLBA = 2, /* lba list - type: __le64 */
@@ -553,6 +555,9 @@ struct pblk_line_mgmt {
 
 #ifdef CONFIG_NVM_PBLK_Q_LEARNING
     int DLI; // data_line index 0~3
+    long *rq_size_mean; // average of request size
+    int *rq_amount; // request amount, max 10000
+    unsigned int *org_rq_size_max; // origin request size max
 #endif
 
 	struct list_head emeta_list; /* Lines queued to schedule emeta */
@@ -903,7 +908,9 @@ void pblk_get_packed_meta(struct pblk *pblk, struct nvm_rq *rqd);
  * pblk user I/O write path
  */
 void pblk_write_to_cache(struct pblk *pblk, struct bio *bio,
-			 unsigned long flags);
+			 unsigned long flags, unsigned int rq_size);
+/* void pblk_write_to_cache(struct pblk *pblk, struct bio *bio,
+			 unsigned long flags); */
 int pblk_write_gc_to_cache(struct pblk *pblk, struct pblk_gc_rq *gc_rq);
 
 /*
