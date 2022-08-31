@@ -858,6 +858,7 @@ static int pblk_line_mg_init(struct pblk *pblk)
     *DLI = 1;
     l_mg->data_line[*DLI] = NULL;
     *DLI = 0; */
+    l_mg->gc_times = 0;
     for (i = 0; i < PBLK_OPEN_LINE; i++) {
         l_mg->data_line[i] = NULL;
 	}

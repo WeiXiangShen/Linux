@@ -467,6 +467,7 @@ next_gc_group:
 			spin_unlock(&l_mg->gc_lock);
 			break;
 		}
+        l_mg->gc_times++;
 
 		spin_lock(&line->lock);
 		WARN_ON(line->state != PBLK_LINESTATE_CLOSED);

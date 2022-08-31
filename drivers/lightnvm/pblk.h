@@ -558,6 +558,7 @@ struct pblk_line_mgmt {
     long *rq_size_mean; // average of request size
     int *rq_amount; // request amount, max 10000
     unsigned int *org_rq_size_max; // origin request size max
+    unsigned long gc_times; // count Garbage Collection times
 #endif
 
 	struct list_head emeta_list; /* Lines queued to schedule emeta */
