@@ -1074,6 +1074,7 @@ EXPORT_SYMBOL(submit_bio_noacct);
  */
 blk_qc_t submit_bio(struct bio *bio)
 {
+	printk(KERN_INFO"This submit_bio is been called, it's inode id is %llu\n",bio->i_ino);
 	if (blkcg_punt_bio_submit(bio))
 		return BLK_QC_T_NONE;
 
