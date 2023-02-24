@@ -2197,12 +2197,21 @@ blk_qc_t blk_mq_submit_bio(struct bio *bio)
 	}
 
 	plug = blk_mq_plug(q, bio);
+
+	//add by shen 
+	printk(KERN_INFO"The request bio %lu,bio_tail %lu\n",rq->bio->i_ino,rq->biotail->i_ino);
+	printk(KERN_INFO"The request bio %p,bio_tail %p\n",rq->bio,rq->biotail);
+	//add by shen 
 	if (unlikely(is_flush_fua)) {
+		//add by shen 
+		printk(KERN_INFO"The request bio %lu,bio_tail %lu\n",rq->bio->i_ino,rq->biotail->i_ino);
+		printk(KERN_INFO"check 1 the the request point to the bio inode number %lu",rq->bio->i_ino);
+		//add by shen 
 		/* Bypass scheduler for flush requests */
 		blk_insert_flush(rq);
 		blk_mq_run_hw_queue(data.hctx, true);
 	} else if (plug && (q->nr_hw_queues == 1 ||
-		   blk_mq_is_sbitmap_shared(rq->mq_hctx->flags) ||
+			blk_mq_is_sbitmap_shared(rq->mq_hctx->flags) ||
 		   q->mq_ops->commit_rqs || !blk_queue_nonrot(q))) {
 		/*
 		 * Use plugging if we have a ->commit_rqs() hook as well, as
@@ -2211,16 +2220,32 @@ blk_qc_t blk_mq_submit_bio(struct bio *bio)
 		 * Use normal plugging if this disk is slow HDD, as sequential
 		 * IO may benefit a lot from plug merging.
 		 */
+		//add by shen 
+		printk(KERN_INFO"The request bio %lu,bio_tail %lu\n",rq->bio->i_ino,rq->biotail->i_ino);
+		printk(KERN_INFO"check 2 the the request point to the bio inode number %lu",rq->bio->i_ino);
+		//add by shen 
 		unsigned int request_count = plug->rq_count;
 		struct request *last = NULL;
 
-		if (!request_count)
+		if (!request_count){
+			//add by shen 
+			printk(KERN_INFO"The request bio %lu,bio_tail %lu\n",rq->bio->i_ino,rq->biotail->i_ino);
+			printk(KERN_INFO"check 3 the the request point to the bio inode number %lu",rq->bio->i_ino);
+			//add by shen 
 			trace_block_plug(q);
-		else
+		}else{
+			//add by shen 
+			printk(KERN_INFO"The request bio %lu,bio_tail %lu\n",rq->bio->i_ino,rq->biotail->i_ino);
+			printk(KERN_INFO"check 4 the the request point to the bio inode number %lu",rq->bio->i_ino);
+			//add by shen 
 			last = list_entry_rq(plug->mq_list.prev);
-
+		}
 		if (request_count >= blk_plug_max_rq_count(plug) || (last &&
 		    blk_rq_bytes(last) >= BLK_PLUG_FLUSH_SIZE)) {
+			//add by shen 
+			printk(KERN_INFO"The request bio %lu,bio_tail %lu\n",rq->bio->i_ino,rq->biotail->i_ino);
+			printk(KERN_INFO"check 5 the the request point to the bio inode number %lu",rq->bio->i_ino);
+			//add by shen 
 			blk_flush_plug_list(plug, false);
 			trace_block_plug(q);
 		}
@@ -2228,6 +2253,10 @@ blk_qc_t blk_mq_submit_bio(struct bio *bio)
 		blk_add_rq_to_plug(plug, rq);
 	} else if (q->elevator) {
 		/* Insert the request at the IO scheduler queue */
+		//add by shen 
+		printk(KERN_INFO"The request bio %lu,bio_tail %lu\n",rq->bio->i_ino,rq->biotail->i_ino);
+		printk(KERN_INFO"check 6 the the request point to the bio inode number %lu",rq->bio->i_ino);
+		//add by shen 
 		blk_mq_sched_insert_request(rq, false, true, true);
 	} else if (plug && !blk_queue_nomerges(q)) {
 		/*
@@ -2237,9 +2266,22 @@ blk_qc_t blk_mq_submit_bio(struct bio *bio)
 		 * The plug list might get flushed before this. If that happens,
 		 * the plug list is empty, and same_queue_rq is invalid.
 		 */
-		if (list_empty(&plug->mq_list))
+		//add by shen 
+		printk(KERN_INFO"The request bio %lu,bio_tail %lu\n",rq->bio->i_ino,rq->biotail->i_ino);
+		printk(KERN_INFO"check 7 the the request point to the bio inode number %lu",rq->bio->i_ino);
+		//add by shen 
+		if (list_empty(&plug->mq_list)){
+			//add by shen 
+			printk(KERN_INFO"The request bio %lu,bio_tail %lu\n",rq->bio->i_ino,rq->biotail->i_ino);
+			printk(KERN_INFO"check 8 the the request point to the bio inode number %lu",rq->bio->i_ino);
+			//add by shen 
 			same_queue_rq = NULL;
+		}
 		if (same_queue_rq) {
+			//add by shen 
+			printk(KERN_INFO"The request bio %lu,bio_tail %lu\n",rq->bio->i_ino,rq->biotail->i_ino);
+			printk(KERN_INFO"check 9 the the request point to the bio inode number %lu",rq->bio->i_ino);
+			//add by shen 
 			list_del_init(&same_queue_rq->queuelist);
 			plug->rq_count--;
 		}
@@ -2247,6 +2289,10 @@ blk_qc_t blk_mq_submit_bio(struct bio *bio)
 		trace_block_plug(q);
 
 		if (same_queue_rq) {
+			//add by shen 
+			printk(KERN_INFO"The request bio %lu,bio_tail %lu\n",rq->bio->i_ino,rq->biotail->i_ino);
+			printk(KERN_INFO"check 10 the the request point to the bio inode number %lu",rq->bio->i_ino);
+			//add by shen 
 			data.hctx = same_queue_rq->mq_hctx;
 			trace_block_unplug(q, 1, true);
 			blk_mq_try_issue_directly(data.hctx, same_queue_rq,
@@ -2254,12 +2300,20 @@ blk_qc_t blk_mq_submit_bio(struct bio *bio)
 		}
 	} else if ((q->nr_hw_queues > 1 && is_sync) ||
 			!data.hctx->dispatch_busy) {
+		//add by shen 
+		printk(KERN_INFO"The request bio %lu,bio_tail %lu\n",rq->bio->i_ino,rq->biotail->i_ino);
+		printk(KERN_INFO"check 11 the the request point to the bio inode number %lu",rq->bio->i_ino);
+		//add by shen 
 		/*
 		 * There is no scheduler and we can try to send directly
 		 * to the hardware.
 		 */
 		blk_mq_try_issue_directly(data.hctx, rq, &cookie);
 	} else {
+		//add by shen 
+		printk(KERN_INFO"The request bio %lu,bio_tail %lu\n",rq->bio->i_ino,rq->biotail->i_ino);
+		printk(KERN_INFO"check 12 the the request point to the bio inode number %lu",rq->bio->i_ino);
+		//add by shen 
 		/* Default case. */
 		blk_mq_sched_insert_request(rq, false, true, true);
 	}
